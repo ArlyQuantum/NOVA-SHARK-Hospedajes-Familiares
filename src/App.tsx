@@ -231,7 +231,7 @@ export default function App() {
   const [showSummaryModal, setShowSummaryModal] = useState<boolean>(false);
   const [showCompareModal, setShowCompareModal] = useState<boolean>(false);
   const [recipientEmail, setRecipientEmail] = useState<string>('');
-  const [emailSubject, setEmailSubject] = useState<string>('Comparativa de Hospedajes Familiares — NOVA Reset Studio');
+  const [emailSubject, setEmailSubject] = useState<string>('Comparativa de Hospedajes Familiares — NOVA SHARK');
   const [copiedFeedback, setCopiedFeedback] = useState<boolean>(false);
   const [emailClientOpened, setEmailClientOpened] = useState<boolean>(false);
 
@@ -702,7 +702,7 @@ export default function App() {
               <div className="h-14 w-28 sm:w-32 rounded-lg bg-white/95 p-1.5 flex items-center justify-center shadow-md border border-[#D99A73]/40 shrink-0">
                 <img
                   src={logoSrc}
-                  alt="NOVA Reset Studio Logo"
+                  alt="NOVA SHARK Logo"
                   className="max-h-full max-w-full object-contain"
                   onError={() => setLogoError(true)}
                 />
@@ -711,7 +711,7 @@ export default function App() {
               <div className="h-14 px-3 rounded-lg border border-dashed border-[#D99A73]/60 bg-[#171322] flex items-center gap-2 shrink-0">
                 <Compass className="w-5 h-5 text-[#59D7CC]" />
                 <div className="text-xs">
-                  <span className="font-semibold block text-[#F5F1E9]">NOVA RESET STUDIO</span>
+                  <span className="font-semibold block text-[#F5F1E9]">NOVA SHARK</span>
                   <label className="text-[10px] text-[#59D7CC] underline cursor-pointer flex items-center gap-1">
                     <Upload className="w-2.5 h-2.5" /> Cargar OPCION 4.png
                     <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
@@ -723,7 +723,7 @@ export default function App() {
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-[11px] uppercase tracking-[0.2em] text-[#D99A73] font-semibold">
-                  NOVA RESET STUDIO
+                  NOVA SHARK
                 </span>
                 <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#59D7CC]/15 text-[#59D7CC] border border-[#59D7CC]/40 font-medium">
                   Búsqueda Abierta Gratuita
