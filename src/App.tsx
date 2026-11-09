@@ -1,6 +1,7 @@
-import React, { useState, useMemo, useRef } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Search,
+  MapPin,
   Calendar,
   Users,
   Home,
@@ -8,950 +9,678 @@ import {
   DollarSign,
   CheckCircle2,
   AlertTriangle,
-  Info,
+  ExternalLink,
   Copy,
   Mail,
-  SlidersHorizontal,
-  ExternalLink,
-  ShieldCheck,
-  Tag,
   Sparkles,
-  Building2,
-  BedDouble,
-  MapPin,
+  SlidersHorizontal,
+  ShieldCheck,
   Clock,
-  ArrowUpDown,
-  Columns,
+  Tag,
   Check,
   X,
+  ArrowUpDown,
+  Building2,
+  Waves,
+  Baby,
+  Accessibility,
+  WashingMachine,
+  CookingPot,
   Upload,
-  Server,
-  Lock,
-  RefreshCw,
-  FileText,
-  ChevronDown,
-  ChevronUp,
-  HelpCircle,
-  Eye,
+  Compass,
+  Loader2,
+  PlusCircle,
+  Globe
 } from 'lucide-react';
 
-// ============================================================================
-// PALETA DE IDENTIDAD VISUAL: NOVA RESET STUDIO
-// Deep Space: #10131B | Secondary Dark: #171322
-// Turquoise: #59D7CC / #41D6CA | Violet: #A47BFF | Copper: #D99A73
-// Ivory Text: #F5F1E9 | Secondary Text: #C7CBC9 / #8E999B | Borders: #59616A
-// ============================================================================
+interface PreferenceOption {
+  id: string;
+  label: string;
+}
 
-const CURRENCY_RATES = {
-  USD: { symbol: 'US$', rate: 1, name: 'Dólar estadounidense (USD)' },
-  EUR: { symbol: '€', rate: 0.92, name: 'Euro (EUR)' },
-  MXN: { symbol: 'MX$', rate: 18.2, name: 'Peso mexicano (MXN)' },
-  DOP: { symbol: 'RD$', rate: 59.5, name: 'Peso dominicano (DOP)' },
-  COP: { symbol: 'COL$', rate: 3950, name: 'Peso colombiano (COP)' },
-};
-
-const FAMILY_PREFERENCES = [
-  { id: 'pool', label: 'Piscina climatizada / infantil' },
+const PREFERENCE_OPTIONS: PreferenceOption[] = [
+  { id: 'pool', label: 'Piscina' },
   { id: 'kitchen', label: 'Cocina equipada' },
-  { id: 'beach', label: 'Acceso a playa' },
-  { id: 'connecting', label: 'Habitaciones familiares conectadas' },
-  { id: 'laundry', label: 'Lavandería en unidad' },
+  { id: 'beach', label: 'Frente a la playa / Acceso' },
+  { id: 'familyRooms', label: 'Habitaciones familiares' },
+  { id: 'laundry', label: 'Lavandería' },
   { id: 'accessibility', label: 'Accesibilidad (movilidad reducida)' },
-  { id: 'kidsClub', label: 'Club infantil / Cuna disponible' },
+  { id: 'kidsClub', label: 'Club infantil / Cuna disponible' }
 ];
 
-// ============================================================================
-// DATOS DE DEMOSTRACIÓN (Claramente rotulados para MODO DEMO)
-// ============================================================================
-const DEMO_PROPERTIES = [
+interface NominatimPlace {
+  place_id: number;
+  display_name: string;
+  lat: string;
+  lon: string;
+  name?: string;
+}
+
+interface QuotedRate {
+  sourceName: string;
+  priceAmount: number;
+  isPerNight: boolean;
+  taxesIncluded: boolean;
+  taxAmount: number;
+  mealPlan: string;
+  cancellation: string;
+  url: string;
+  queriedAt: string;
+  notes?: string;
+}
+
+interface RealProperty {
+  id: string;
+  name: string;
+  type: 'hotel' | 'resort' | 'villa';
+  typeLabel: string;
+  location: string;
+  lat: number;
+  lon: number;
+  website?: string;
+  phone?: string;
+  stars?: string;
+  amenities: string[];
+  capacityAdults: number;
+  capacityKids: number;
+  recommendedUnits: number;
+  isDemo: boolean;
+  quotedRates: QuotedRate[];
+}
+
+interface PromoOffer {
+  id: string;
+  title: string;
+  code: string;
+  discountText: string;
+  source: string;
+  sourceUrl: string;
+  validUntil: string;
+  travelWindow: string;
+  groupRequirements: string;
+  restrictions: string;
+  status: 'verified_by_source' | 'published_unverified_checkout';
+}
+
+const PUBLIC_FAMILY_OFFERS: PromoOffer[] = [
   {
-    id: 'prop-riviera-1',
-    name: 'Grand Coral Family Villas & Resort',
-    type: 'Resort',
-    destination: 'Riviera Maya, México',
-    regionTag: 'Riviera Maya',
-    distanceFromCenter: 'A 12 km de Playa del Carmen (Zona Costera)',
-    isNearbyRegion: false,
-    maxCapacity: 8,
-    recommendedRooms: 2,
-    unitDistribution:
-      'Suite Familiar 2 Recámaras (1 King + 2 Matrimoniales + Sofá cama)',
-    baseNightlyUSD: 390,
-    taxesStatus: 'breakdown', // 'breakdown' | 'unconfirmed' | 'included'
-    taxesAmountUSD: 68, // por noche en cargos e impuestos
-    taxesNote:
-      'Impuestos locales (16% IVA + 5% ISH) y cargo de resort ($22 USD/noche) detallados por el proveedor.',
-    preferencesMet: [
-      'pool',
-      'kitchen',
-      'beach',
-      'connecting',
-      'kidsClub',
-      'accessibility',
-    ],
-    highlights: [
-      'Área infantil supervisada y cunas sin costo previa solicitud',
-      'Cocina completa con refrigerador familiar y microondas',
-      'Acceso directo a caleta de oleaje suave',
-    ],
-    sources: [
-      {
-        sourceId: 'src-1a',
-        providerName: 'Web Oficial del Resort (Canal Directo)',
-        providerType: 'Sitio Oficial',
-        nightlyRateUSD: 390,
-        mealPlan: 'Todo Incluido',
-        cancellation: 'Cancelación gratuita hasta 7 días antes del check-in',
-        availability: 'Disponible (Últimas 2 unidades familiares)',
-        lastChecked: 'Hace 8 minutos (10:36 EST)',
-        url: 'https://ejemplo-demo-oficial.novareset.local/grand-coral-villas',
-        conditionNote:
-          'Incluye desayuno, comidas, snacks y acceso al club de niños. Pago del 20% al reservar.',
-      },
-      {
-        sourceId: 'src-1b',
-        providerName: 'Red Afiliada Familiar (OTA Autorizada)',
-        providerType: 'Motor Afiliado',
-        nightlyRateUSD: 365,
-        mealPlan: 'Desayuno incluido',
-        cancellation: 'No reembolsable (Tarifa restringida)',
-        availability: 'Disponible',
-        lastChecked: 'Hace 11 minutos (10:33 EST)',
-        url: 'https://ejemplo-demo-ota.novareset.local/grand-coral-promo',
-        conditionNote:
-          'Menor tarifa base, pero NO incluye cenas ni permite cambios de fecha sin penalidad del 100%.',
-      },
-      {
-        sourceId: 'src-1c',
-        providerName: 'Consolidador Vacacional B2B',
-        providerType: 'Mayorista',
-        nightlyRateUSD: 405,
-        mealPlan: 'Todo Incluido',
-        cancellation: 'Cancelación gratuita hasta 48h antes',
-        availability: 'Confirmación inmediata',
-        lastChecked: 'Hace 14 minutos (10:30 EST)',
-        url: 'https://ejemplo-demo-mayorista.novareset.local/grand-coral',
-        conditionNote:
-          'Mayor flexibilidad de cancelación (48h), incluye traslado compartido desde aeropuerto.',
-      },
-    ],
+    id: 'pub-1',
+    title: 'Ofertas de Temporada y Paquetes Familiares en Booking.com',
+    code: 'TARIFA AUTOMÁTICA (Early / Escape Deals)',
+    discountText: '15% a 20% dto. en alojamientos participantes',
+    source: 'Booking.com (Página Pública de Ofertas)',
+    sourceUrl: 'https://www.booking.com/dealspage.es.html',
+    validUntil: 'Según disponibilidad de temporada',
+    travelWindow: 'Fechas seleccionadas en el buscador',
+    groupRequirements: 'Aplicable en habitaciones familiares y villas seleccionadas',
+    restrictions: 'El descuento se aplica directamente sobre la tarifa base en propiedades con insignia de oferta.',
+    status: 'verified_by_source'
   },
   {
-    id: 'prop-riviera-2',
-    name: 'Villa Turquesa Akumal Eco-Estate',
-    type: 'Villa',
-    destination: 'Akumal (Cerca de Riviera Maya), México',
-    regionTag: 'Riviera Maya',
-    distanceFromCenter: 'A 26 km al sur de Playa del Carmen',
-    isNearbyRegion: true,
-    maxCapacity: 10,
-    recommendedRooms: 3,
-    unitDistribution:
-      'Villa Privada de 3 Habitaciones + Cuarto de servicio y terraza',
-    baseNightlyUSD: 460,
-    taxesStatus: 'unconfirmed',
-    taxesAmountUSD: 0,
-    taxesNote:
-      'Atención: Tasa de saneamiento ambiental y depósito de seguridad ($300 USD reembolsable) se confirman en el checkout del administrador.',
-    preferencesMet: ['pool', 'kitchen', 'beach', 'laundry', 'accessibility'],
-    highlights: [
-      'Piscina privada con reja de seguridad removible para niños',
-      'Lavadora y secadora dentro de la villa (ideal estadías largas)',
-      'Cocina gourmet completa; opción de contratar chef local',
-    ],
-    sources: [
-      {
-        sourceId: 'src-2a',
-        providerName: 'Portal Oficial de Villas Akumal',
-        providerType: 'Administradora Directa',
-        nightlyRateUSD: 460,
-        mealPlan: 'Otro plan',
-        cancellation: 'Reembolso del 100% cancelando 14 días antes',
-        availability: 'Disponible (1 villa completa)',
-        lastChecked: 'Hace 6 minutos (10:38 EST)',
-        url: 'https://ejemplo-demo-villas.novareset.local/villa-turquesa-akumal',
-        conditionNote:
-          'Régimen de cocina propia (Self-catering). Limpieza interdiaria incluida.',
-      },
-      {
-        sourceId: 'src-2b',
-        providerName: 'Buscador Global de Alquiler Vacacional',
-        providerType: 'Plataforma Vacacional',
-        nightlyRateUSD: 488,
-        mealPlan: 'Otro plan',
-        cancellation: 'Reembolso parcial (50%) hasta 7 días antes',
-        availability: 'Disponible',
-        lastChecked: 'Hace 15 minutos (10:29 EST)',
-        url: 'https://ejemplo-demo-vacacional.novareset.local/akumal-turquesa',
-        conditionNote:
-          'Incluye cargo por servicio de plataforma (+6%). No incluye limpieza diaria.',
-      },
-    ],
+    id: 'pub-2',
+    title: 'Tarifas para Miembros y Grupos Familiares en Expedia',
+    code: 'PRECIOS PARA MIEMBROS / APP',
+    discountText: '10% o más en hoteles seleccionados',
+    source: 'Expedia Ofertas Públicas',
+    sourceUrl: 'https://www.expedia.com/deals',
+    validUntil: 'Permanente en catálogo adherido',
+    travelWindow: 'Abierto todo el año',
+    groupRequirements: 'Sin mínimo de noches obligatorio en tarifa estándar',
+    restrictions: 'Requiere verificar condiciones de cancelación en la página de pago del proveedor.',
+    status: 'published_unverified_checkout'
   },
   {
-    id: 'prop-orlando-1',
-    name: 'Starlight Palms Family Suites & Hotel',
-    type: 'Hotel',
-    destination: 'Orlando (Lake Buena Vista), EE. UU.',
-    regionTag: 'Orlando',
-    distanceFromCenter: 'A 4.5 km de los parques temáticos principales',
-    isNearbyRegion: false,
-    maxCapacity: 6,
-    recommendedRooms: 2,
-    unitDistribution:
-      '2 Habitaciones Conectadas internamente (2 Queen + 1 King + Litera)',
-    baseNightlyUSD: 245,
-    taxesStatus: 'breakdown',
-    taxesAmountUSD: 42,
-    taxesNote:
-      'Impuesto condal de alojamiento (12.5%) + estacionamiento familiar ($12 USD/noche). Sin resort fee oculto.',
-    preferencesMet: [
-      'pool',
-      'kitchen',
-      'connecting',
-      'laundry',
-      'accessibility',
-      'kidsClub',
-    ],
-    highlights: [
-      'Desayuno caliente tipo buffet incluido para toda la familia',
-      'Habitaciones conectadas garantizadas por contrato familiar',
-      'Cocineta equipada y lavandería de autoservicio en cada piso',
-    ],
-    sources: [
-      {
-        sourceId: 'src-3a',
-        providerName: 'Web Oficial Starlight Hotels',
-        providerType: 'Sitio Oficial',
-        nightlyRateUSD: 245,
-        mealPlan: 'Desayuno incluido',
-        cancellation: 'Cancelación sin cargo hasta 24h antes de la llegada',
-        availability: 'Alta disponibilidad',
-        lastChecked: 'Hace 4 minutos (10:40 EST)',
-        url: 'https://ejemplo-demo-starlight.novareset.local/orlando-suites',
-        conditionNote:
-          'Garantiza puerta conectada entre habitaciones al reservar tarifa Familiar.',
-      },
-      {
-        sourceId: 'src-3b',
-        providerName: 'Portal Afiliado de Viajes',
-        providerType: 'Motor Afiliado',
-        nightlyRateUSD: 232,
-        mealPlan: 'Otro plan',
-        cancellation: 'No reembolsable',
-        availability: 'Disponible',
-        lastChecked: 'Hace 9 minutos (10:35 EST)',
-        url: 'https://ejemplo-demo-ota.novareset.local/starlight-orlando',
-        conditionNote:
-          'No incluye desayuno buffet ($18 USD por adulto adicional) y habitaciones conectadas sujetas a disponibilidad al llegar.',
-      },
-    ],
-  },
-  {
-    id: 'prop-puntacana-1',
-    name: 'Bahía Ámbar All-Generations Resort',
-    type: 'Resort',
-    destination: 'Punta Cana (Bávaro), República Dominicana',
-    regionTag: 'Punta Cana',
-    distanceFromCenter: 'Frente a Playa Bávaro, a 18 min del Aeropuerto PUJ',
-    isNearbyRegion: false,
-    maxCapacity: 9,
-    recommendedRooms: 2,
-    unitDistribution:
-      'Master Family Loft de 2 Niveles + Balcón con rampa accesible',
-    baseNightlyUSD: 420,
-    taxesStatus: 'included',
-    taxesAmountUSD: 0,
-    taxesNote:
-      '18% ITBIS + 10% cargo legal por servicio ya incluidos en el precio publicado por la fuente.',
-    preferencesMet: [
-      'pool',
-      'beach',
-      'connecting',
-      'accessibility',
-      'kidsClub',
-    ],
-    highlights: [
-      'Niños menores de 12 años se hospedan sin cargo adicional en temporada baja',
-      'Accesibilidad completa: rampas en playa, ascensores anchos y baño adaptado',
-      'Parque acuático infantil y guardería certificada',
-    ],
-    sources: [
-      {
-        sourceId: 'src-4a',
-        providerName: 'Canal Directo Bahía Ámbar',
-        providerType: 'Sitio Oficial',
-        nightlyRateUSD: 420,
-        mealPlan: 'Todo Incluido',
-        cancellation: 'Cancelación gratuita hasta 5 días antes',
-        availability: 'Disponible (3 unidades)',
-        lastChecked: 'Hace 5 minutos (10:39 EST)',
-        url: 'https://ejemplo-demo-bahiaambar.novareset.local/punta-cana',
-        conditionNote:
-          'Todo incluido 24h, impuestos incluidos y 1er niño gratis aplicado en tarifa.',
-      },
-      {
-        sourceId: 'src-4b',
-        providerName: 'Agencia Mayorista Caribe',
-        providerType: 'Mayorista',
-        nightlyRateUSD: 398,
-        mealPlan: 'Todo Incluido',
-        cancellation:
-          'Penalidad de 1 noche si cancela dentro de los 10 días previos',
-        availability: 'Disponible bajo petición rápida',
-        lastChecked: 'Hace 19 minutos (10:25 EST)',
-        url: 'https://ejemplo-demo-caribe.novareset.local/bahia-ambar-deal',
-        conditionNote:
-          'Precio menor pero requiere pago total inmediato al confirmar.',
-      },
-    ],
-  },
-  {
-    id: 'prop-mallorca-1',
-    name: 'Finca Mediterránea Alcúdia Villas & Aparthotel',
-    type: 'Villa',
-    destination: 'Alcúdia, Mallorca, España',
-    regionTag: 'Mallorca',
-    distanceFromCenter: 'A 800 m de Playa de Muro (aguas poco profundas)',
-    isNearbyRegion: true,
-    maxCapacity: 7,
-    recommendedRooms: 2,
-    unitDistribution:
-      'Villa Adosada Familiar (2 Dormitorios dobles + Estudio + Cocina)',
-    baseNightlyUSD: 315,
-    taxesStatus: 'breakdown',
-    taxesAmountUSD: 19,
-    taxesNote:
-      'Ecotasa balear (Impuesto de Turismo Sostenible) e IVA 10% calculados según adultos.',
-    preferencesMet: ['pool', 'kitchen', 'beach', 'laundry', 'kidsClub'],
-    highlights: [
-      'Cocina completa y lavadora privada; supermercado a 200 metros',
-      'Playa de Muro con entrada muy suave al mar, ideal para niños pequeños',
-      'Opción de media pensión flexible o cocina libre',
-    ],
-    sources: [
-      {
-        sourceId: 'src-5a',
-        providerName: 'Web Oficial Finca Alcúdia',
-        providerType: 'Sitio Oficial',
-        nightlyRateUSD: 315,
-        mealPlan: 'Desayuno incluido',
-        cancellation: 'Cancelación gratuita hasta 72 horas antes',
-        availability: 'Disponible',
-        lastChecked: 'Hace 12 minutos (10:32 EST)',
-        url: 'https://ejemplo-demo-mallorca.novareset.local/finca-alcudia',
-        conditionNote:
-          'Incluye desayuno mediterráneo y cuna de viaje sin cargo.',
-      },
-    ],
-  },
+    id: 'pub-3',
+    title: 'Descuento por Estadía Semanal o Mensual en Villas y Casas',
+    code: 'DESCUENTO SEMANAL (7+ NOCHES)',
+    discountText: '10% a 25% dto. automático en estancias de 7+ noches',
+    source: 'Airbnb / Plataformas de Alquiler Vacacional',
+    sourceUrl: 'https://www.airbnb.com',
+    validUntil: 'Permanente según anfitrión',
+    travelWindow: 'Estadías de 7 noches o más',
+    groupRequirements: 'Ideal para familias que reservan la unidad completa',
+    restrictions: 'Sujeto a cargos de limpieza y tarifa de servicio mostrados en el desglose final.',
+    status: 'published_unverified_checkout'
+  }
 ];
 
-const DEMO_OFFERS = [
+const DEMO_PROPERTIES: RealProperty[] = [
   {
-    id: 'off-1',
-    code: 'FAMILIA2026',
-    title: '15% de descuento en Suites Familiares + 1 Niño Gratis (<12 años)',
-    discountSummary: '15% DTO sobre tarifa flexible + 1er niño sin cargo',
-    sourceName:
-      'Portal Oficial Grand Coral & Bahía Ámbar (Promoción de Temporada)',
-    sourceUrl:
-      'https://ejemplo-demo-oficial.novareset.local/promociones-familiares',
-    validUntil: '30 de noviembre de 2026',
-    travelWindow:
-      'Viajes entre el 15 de noviembre de 2026 y el 20 de junio de 2027 (excluye 24-31 dic)',
-    requirements:
-      'Estadía mínima de 4 noches. Grupo mínimo de 2 adultos + 1 menor de 12 años.',
-    restrictions:
-      'No acumulable con tarifas no reembolsables de OTAs externas. Requiere presentar documento de edad del menor al check-in.',
-    verificationStatus: 'verified_source', // 'verified_source' | 'unverified_checkout' | 'expired'
-    statusLabel: 'Verificado por la fuente',
-    statusDescription:
-      'Publicado oficialmente en la página de promociones del hotel. Aún debe validarse la disponibilidad de cupo en la fecha exacta elegida.',
-    applicablePropertyIds: ['prop-riviera-1', 'prop-puntacana-1'],
-    lastChecked: 'Hoy, 10:35 EST',
-  },
-  {
-    id: 'off-2',
-    code: 'GRUPO3HAB',
-    title: 'Descuento por Grupo Familiar Múltiple (2 o más unidades)',
-    discountSummary:
-      '10% DTO reservando 2+ habitaciones o Villa de 3+ recámaras',
-    sourceName:
-      'Programa Público de Grupos Pequeños - Starlight & Villas Akumal',
-    sourceUrl:
-      'https://ejemplo-demo-villas.novareset.local/tarifas-grupos-familiares',
-    validUntil: '15 de enero de 2027',
-    travelWindow: 'Todo el año 2026 y primer semestre de 2027',
-    requirements:
-      'Reservar al menos 2 habitaciones bajo el mismo localizador familiar o 1 villa para 6+ personas.',
-    restrictions: 'Sujeto a inventario de habitaciones contiguas.',
-    verificationStatus: 'verified_source',
-    statusLabel: 'Verificado por la fuente',
-    statusDescription:
-      'Términos verificados en el tarifario público del proveedor.',
-    applicablePropertyIds: ['prop-riviera-2', 'prop-orlando-1'],
-    lastChecked: 'Hoy, 10:38 EST',
-  },
-  {
-    id: 'off-3',
-    code: 'PROMOVIAJE75',
-    title:
-      'Cupón de directorio promocional (-$75 USD en estadías de +5 noches)',
-    discountSummary: '-$75 USD adicionales sobre el total antes de impuestos',
-    sourceName: 'Directorio Público de Cupones de Viaje (Afiliado Externo)',
-    sourceUrl: 'https://ejemplo-demo-cupones.novareset.local/hotel-codes',
-    validUntil: 'Sin fecha de cierre confirmada por el emisor',
-    travelWindow: 'Estadías de 5 noches o más',
-    requirements: 'Gasto mínimo de $1,200 USD antes de impuestos.',
-    restrictions:
-      'No pudimos comprobar su aplicación en la pasarela final de pago sin iniciar una reserva real.',
-    verificationStatus: 'unverified_checkout',
-    statusLabel: 'Publicado pero sin verificar al reservar',
-    statusDescription:
-      'Listado en portal público de promociones, pero NO se afirma que funcione en la pantalla de pago hasta probarlo en el proveedor.',
-    applicablePropertyIds: [
-      'prop-riviera-1',
-      'prop-orlando-1',
-      'prop-mallorca-1',
-    ],
-    lastChecked: 'Hoy, 10:20 EST',
-  },
-  {
-    id: 'off-4',
-    code: 'VERANO2026EARLY',
-    title: 'Venta Anticipada Verano Familiar (-20% Reserva Temprana)',
-    discountSummary: '20% DTO (Promoción finalizada)',
-    sourceName: 'Archivo Histórico de Promociones Oficiales',
-    sourceUrl: 'https://ejemplo-demo-oficial.novareset.local/archivo-ofertas',
-    validUntil: '31 de agosto de 2026 (Vencido)',
-    travelWindow: 'Verano 2026',
-    requirements: 'Reserva con 90 días de anticipación.',
-    restrictions:
-      'Este código ya expiró. Se muestra únicamente como referencia histórica.',
-    verificationStatus: 'expired',
-    statusLabel: 'Vencido',
-    statusDescription:
-      'El periodo de vigencia publicado por la fuente ha concluido.',
-    applicablePropertyIds: ['prop-mallorca-1'],
-    lastChecked: 'Hoy, 10:15 EST',
-  },
-];
-
-const INITIAL_CONNECTORS = [
-  {
-    id: 'amadeus',
-    name: 'Amadeus Hotel Search & Offers API',
-    category: 'GDS / Motor Oficial de Disponibilidad',
-    status: 'missing_credentials',
-    envRequired:
-      'AMADEUS_CLIENT_ID / AMADEUS_CLIENT_SECRET (En servidor backend)',
-    notes:
-      'Requiere un proxy seguro en backend para negociar el token OAuth2 sin exponer claves privadas en el navegador.',
-  },
-  {
-    id: 'expedia_rapid',
-    name: 'Expedia Group Rapid API (EPS)',
-    category: 'Proveedor Autorizado de Tarifas y Desglose de Impuestos',
-    status: 'missing_credentials',
-    envRequired: 'EPS_API_KEY / EPS_SHARED_SECRET (Firma SHA-512 en backend)',
-    notes:
-      'Proporciona inventario familiar, camas extras y desglose exacto de resort fees.',
-  },
-  {
-    id: 'booking_demand',
-    name: 'Booking.com Demand Affiliate API',
-    category: 'Programa Oficial de Afiliados',
-    status: 'missing_credentials',
-    envRequired: 'BOOKING_AFFILIATE_ID / DEMAND_API_TOKEN',
-    notes:
-      'Sin credenciales configuradas en este entorno. No se realiza scraping ni acceso no autorizado.',
-  },
-  {
-    id: 'direct_channel',
-    name: 'Conector OpenTravel / Motores Directos de Hoteles',
-    category: 'Canales Oficiales y Tarifas de Grupo',
-    status: 'missing_credentials',
-    envRequired: 'PROXY_ENDPOINT_URL',
-    notes:
-      'Listo para consultar feeds JSON autorizados de promociones familiares.',
-  },
+    id: 'demo-1',
+    name: 'Bahía Coral Family Resort & Villas (EJEMPLO DEMO)',
+    type: 'resort',
+    typeLabel: 'Resort Familiar',
+    location: 'Punta Cana, República Dominicana',
+    lat: 18.582,
+    lon: -68.405,
+    website: 'https://www.google.com/travel/hotels',
+    stars: '5',
+    amenities: ['pool', 'beach', 'familyRooms', 'kidsClub', 'accessibility'],
+    capacityAdults: 6,
+    capacityKids: 4,
+    recommendedUnits: 2,
+    isDemo: true,
+    quotedRates: [
+      {
+        sourceName: 'Sitio Oficial (Tarifa de Muestra)',
+        priceAmount: 2240,
+        isPerNight: false,
+        taxesIncluded: true,
+        taxAmount: 0,
+        mealPlan: 'all_inclusive',
+        cancellation: 'Cancelación gratuita hasta 7 días antes',
+        url: 'https://www.google.com/travel/hotels',
+        queriedAt: 'Muestra DEMO',
+        notes: 'Incluye estadía para 2 niños menores de 12 años.'
+      }
+    ]
+  }
 ];
 
 export default function App() {
-  // ============================================================================
-  // ESTADOS GLOBALES: MODO REAL VS MODO DEMO & LOGO
-  // ============================================================================
-  const [dataMode, setDataMode] = useState('demo'); // 'demo' | 'real'
-  const [activeTab, setActiveTab] = useState('search'); // 'search' | 'offers' | 'integrations'
-  const [logoLoadError, setLogoLoadError] = useState(false);
-  const [customLogoUrl, setCustomLogoUrl] = useState(null);
-  const fileInputRef = useRef(null);
+  // Estado del logo
+  const [logoSrc, setLogoSrc] = useState<string>('/OPCION 4.png');
+  const [logoError, setLogoError] = useState<boolean>(false);
 
-  // Estado del conector Backend Proxy (para Modo Real)
-  const [proxyEndpoint, setProxyEndpoint] = useState('');
-  const [realConnectionState, setRealConnectionState] = useState({
-    tested: false,
-    testing: false,
-    connected: false,
-    message:
-      'No se ha configurado un endpoint backend con credenciales activas. Para evitar exponer claves secretas en el navegador y nunca inventar precios falsos como si fueran en vivo, las consultas reales requieren configurar el proxy del proyecto.',
-  });
+  // Modo de operación: 'live' (Búsqueda Real Gratuita OSM + Deep Links) o 'demo'
+  const [dataMode, setDataMode] = useState<'live' | 'demo'>('live');
+  const [activeTab, setActiveTab] = useState<'search' | 'offers'>('search');
 
-  // ============================================================================
-  // ESTADO DEL FORMULARIO DE BÚSQUEDA FAMILIAR
-  // ============================================================================
-  const [searchParams, setSearchParams] = useState({
-    destination: 'Todos', // 'Todos', 'Riviera Maya', 'Orlando', 'Punta Cana', 'Mallorca' o texto libre
-    includeNearby: true,
-    dateMode: 'exact', // 'exact' | 'flexible'
-    checkIn: '2026-12-12',
-    checkOut: '2026-12-17',
-    flexibleWindow: '5 noches en Diciembre (±3 días flexibles)',
-    FlexibleNightsCount: 5,
-    adults: 2,
-    childrenCount: 2,
-    childrenAges: [6, 10],
-    rooms: 2,
-    accommodationType: 'all', // 'all' | 'Villa' | 'Resort' | 'Hotel'
-    mealPlan: 'any', // 'any' | 'Todo Incluido' | 'Desayuno incluido' | 'Otro plan'
-    maxBudget: 3500,
-    currency: 'USD',
-    budgetScope: 'total', // 'total' | 'night'
-    preferences: ['pool', 'connecting'],
-  });
+  // Filtros de búsqueda familiar
+  const [destination, setDestination] = useState<string>('Punta Cana');
+  const [includeNearby, setIncludeNearby] = useState<boolean>(true);
+  const [dateType, setDateType] = useState<'exact' | 'flexible'>('exact');
+  const [checkIn, setCheckIn] = useState<string>('2026-07-15');
+  const [checkOut, setCheckOut] = useState<string>('2026-07-21');
+  const [flexibleNights, setFlexibleNights] = useState<number>(6);
+  const [adults, setAdults] = useState<number>(4);
+  const [childrenCount, setChildrenCount] = useState<number>(2);
+  const [childrenAges, setChildrenAges] = useState<number[]>([6, 10]);
+  const [units, setUnits] = useState<number>(2);
+  const [accommodationType, setAccommodationType] = useState<string>('all');
+  const [mealPlan, setMealPlan] = useState<string>('any');
+  const [maxBudget, setMaxBudget] = useState<number>(3500);
+  const [currency, setCurrency] = useState<string>('USD');
+  const [budgetScope, setBudgetScope] = useState<'total' | 'per_night'>('total');
+  const [preferences, setPreferences] = useState<string[]>(['pool', 'familyRooms']);
 
-  // Ordenamiento y filtros de vista
-  const [sortBy, setSortBy] = useState('match'); // 'total_asc' | 'person_asc' | 'capacity_desc' | 'match'
-  const [showExpiredOffers, setShowExpiredOffers] = useState(false);
-  const [isSearchingFeedback, setIsSearchingFeedback] = useState(false);
+  // Estado de la búsqueda en vivo (OpenStreetMap Nominatim + Overpass)
+  const [isSearching, setIsSearching] = useState<boolean>(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [resolvedPlace, setResolvedPlace] = useState<string>('');
+  const [lastQueryTime, setLastQueryTime] = useState<string>('');
+  const [liveProperties, setLiveProperties] = useState<RealProperty[]>([]);
+  const [hasSearchedOnce, setHasSearchedOnce] = useState<boolean>(false);
 
-  // ============================================================================
-  // ESTADOS DE COMPARACIÓN, SELECCIÓN Y COMPARTICIÓN
-  // ============================================================================
-  const [selectedForSummary, setSelectedForSummary] = useState([
-    'prop-riviera-1',
-    'prop-orlando-1',
-  ]);
-  const [selectedForCompare, setSelectedForCompare] = useState([
-    'prop-riviera-1',
-    'prop-orlando-1',
-  ]);
-  const [isCompareModalOpen, setIsCompareModalOpen] = useState(false);
-  const [isSummaryDrawerOpen, setIsSummaryDrawerOpen] = useState(false);
-  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
-  const [copiedNotice, setCopiedNotice] = useState(false);
+  // Ordenamiento y selección
+  const [sortBy, setSortBy] = useState<string>('best_match');
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
-  // Estado del correo preparado
-  const [emailDraft, setEmailDraft] = useState({
-    to: '',
-    subject: 'Opciones de Hospedaje Familiar Comparadas — NOVA Reset Studio',
-    body: '',
-    clientOpenedNotice: false,
-  });
+  // Modal para registrar/capturar tarifa real vista en Booking/Google/Expedia
+  const [rateModalPropertyId, setRateModalPropertyId] = useState<string | null>(null);
+  const [rateSource, setRateSource] = useState<string>('Google Hotels');
+  const [rateAmount, setRateAmount] = useState<string>('');
+  const [rateIsPerNight, setRateIsPerNight] = useState<boolean>(false);
+  const [rateTaxesIncluded, setRateTaxesIncluded] = useState<boolean>(false);
+  const [rateTaxAmount, setRateTaxAmount] = useState<string>('0');
+  const [rateMealPlan, setRateMealPlan] = useState<string>('all_inclusive');
+  const [rateCancellation, setRateCancellation] = useState<string>('Cancelación gratuita disponible');
+  const [rateUrl, setRateUrl] = useState<string>('');
 
-  // ============================================================================
-  // FUNCIONES AUXILIARES DE CÁLCULO
-  // ============================================================================
+  // Modal de resumen / correo / comparación
+  const [showSummaryModal, setShowSummaryModal] = useState<boolean>(false);
+  const [showCompareModal, setShowCompareModal] = useState<boolean>(false);
+  const [recipientEmail, setRecipientEmail] = useState<string>('');
+  const [emailSubject, setEmailSubject] = useState<string>('Comparativa de Hospedajes Familiares — NOVA Reset Studio');
+  const [copiedFeedback, setCopiedFeedback] = useState<boolean>(false);
+  const [emailClientOpened, setEmailClientOpened] = useState<boolean>(false);
+
+  // Cálculo de noches
   const nightsCount = useMemo(() => {
-    if (searchParams.dateMode === 'flexible') {
-      return Number(searchParams.FlexibleNightsCount) || 5;
+    if (dateType === 'flexible') {
+      return Math.max(1, Number(flexibleNights) || 1);
     }
-    const start = new Date(searchParams.checkIn);
-    const end = new Date(searchParams.checkOut);
+    const start = new Date(checkIn).getTime();
+    const end = new Date(checkOut).getTime();
     const diff = Math.round((end - start) / (1000 * 60 * 60 * 24));
     return diff > 0 ? diff : 1;
-  }, [
-    searchParams.dateMode,
-    searchParams.checkIn,
-    searchParams.checkOut,
-    searchParams.FlexibleNightsCount,
-  ]);
+  }, [dateType, checkIn, checkOut, flexibleNights]);
 
-  const totalGuests = useMemo(() => {
-    return Number(searchParams.adults) + Number(searchParams.childrenCount);
-  }, [searchParams.adults, searchParams.childrenCount]);
+  const totalGuests = adults + childrenCount;
 
-  const formatMoney = (amountUSD, currencyCode = searchParams.currency) => {
-    const curr = CURRENCY_RATES[currencyCode] || CURRENCY_RATES.USD;
-    const converted = amountUSD * curr.rate;
-    return `${curr.symbol}${Math.round(converted).toLocaleString('es-ES')}`;
-  };
-
-  // Manejo de cambio de cantidad de niños y sus edades
-  const handleChildrenCountChange = (newCount) => {
-    const count = Math.max(0, Math.min(8, Number(newCount)));
-    const currentAges = [...searchParams.childrenAges];
-    if (count > currentAges.length) {
-      while (currentAges.length < count) {
-        currentAges.push(7);
+  // Manejo de cantidad y edades de niños
+  const handleChildrenCountChange = (val: number) => {
+    const count = Math.max(0, Math.min(10, val));
+    setChildrenCount(count);
+    setChildrenAges((prev) => {
+      if (count > prev.length) {
+        return [...prev, ...Array(count - prev.length).fill(7)];
       }
-    } else {
-      currentAges.length = count;
-    }
-    setSearchParams((prev) => ({
-      ...prev,
-      childrenCount: count,
-      childrenAges: currentAges,
-    }));
-  };
-
-  const handleChildAgeChange = (index, age) => {
-    const updated = [...searchParams.childrenAges];
-    updated[index] = Number(age);
-    setSearchParams((prev) => ({ ...prev, childrenAges: updated }));
-  };
-
-  const togglePreference = (prefId) => {
-    setSearchParams((prev) => {
-      const exists = prev.preferences.includes(prefId);
-      return {
-        ...prev,
-        preferences: exists
-          ? prev.preferences.filter((id) => id !== prefId)
-          : [...prev.preferences, prefId],
-      };
+      return prev.slice(0, count);
     });
   };
 
-  // Carga local opcional de OPCION 4.png si el sandbox bloquea rutas locales
-  const handleLogoUpload = (e) => {
+  const handleChildAgeChange = (idx: number, age: number) => {
+    setChildrenAges((prev) => {
+      const next = [...prev];
+      next[idx] = Math.max(0, Math.min(17, age));
+      return next;
+    });
+  };
+
+  const togglePreference = (id: string) => {
+    setPreferences((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const objectUrl = URL.createObjectURL(file);
-      setCustomLogoUrl(objectUrl);
-      setLogoLoadError(false);
+      const url = URL.createObjectURL(file);
+      setLogoSrc(url);
+      setLogoError(false);
     }
   };
 
-  // ============================================================================
-  // PROCESAMIENTO, DEDUPLICACIÓN Y CALIFICACIÓN DE COINCIDENCIA FAMILIAR
-  // ============================================================================
-  const evaluatedProperties = useMemo(() => {
-    if (dataMode === 'real' && !realConnectionState.connected) {
-      return [];
+  // Generador de enlaces reales directos a motores de reserva con fechas y huéspedes
+  const buildLiveBookingLinks = (hotelName: string, locationName: string) => {
+    const fullQuery = encodeURIComponent(`${hotelName} ${locationName}`);
+    const destOnly = encodeURIComponent(locationName || destination);
+
+    // Booking.com acepta parámetros directos de check-in, check-out, adultos, niños y habitaciones
+    const childrenAgeParams = childrenAges.map((age) => `&age=${age}`).join('');
+    const bookingUrl = `https://www.booking.com/searchresults.es.html?ss=${fullQuery}&checkin=${checkIn}&checkout=${checkOut}&group_adults=${adults}&req_adults=${adults}&group_children=${childrenCount}&req_children=${childrenCount}${childrenAgeParams}&no_rooms=${units}`;
+
+    // Google Hotels búsqueda directa
+    const googleHotelsUrl = `https://www.google.com/travel/hotels?q=${fullQuery}`;
+
+    // Expedia búsqueda con fechas y huéspedes
+    const expediaUrl = `https://www.expedia.com/Hotel-Search?destination=${fullQuery}&startDate=${checkIn}&endDate=${checkOut}&adults=${adults}&rooms=${units}`;
+
+    // Airbnb para villas o grupos familiares
+    const airbnbUrl = `https://www.airbnb.com/s/${destOnly}/homes?checkin=${checkIn}&checkout=${checkOut}&adults=${adults}&children=${childrenCount}`;
+
+    return { bookingUrl, googleHotelsUrl, expediaUrl, airbnbUrl };
+  };
+
+  // BÚSQUEDA REAL GRATUITA EN INTERNET (OpenStreetMap Nominatim + Overpass API)
+  const executeRealSearch = async () => {
+    if (!destination.trim()) {
+      setSearchError('Escribe una ciudad, región o país para buscar hospedajes reales.');
+      return;
     }
 
-    const currRate = (
-      CURRENCY_RATES[searchParams.currency] || CURRENCY_RATES.USD
-    ).rate;
+    setDataMode('live');
+    setIsSearching(true);
+    setSearchError(null);
+    setHasSearchedOnce(true);
 
-    return DEMO_PROPERTIES.map((prop) => {
-      // Elegir la fuente que mejor coincida con el régimen buscado o la de menor precio
-      const matchingSources = prop.sources.filter((src) =>
-        searchParams.mealPlan === 'any'
-          ? true
-          : src.mealPlan === searchParams.mealPlan
-      );
-      const primarySource =
-        matchingSources.length > 0
-          ? [...matchingSources].sort(
-              (a, b) => a.nightlyRateUSD - b.nightlyRateUSD
-            )[0]
-          : [...prop.sources].sort(
-              (a, b) => a.nightlyRateUSD - b.nightlyRateUSD
-            )[0];
-
-      const nightlyBaseUSD = primarySource.nightlyRateUSD;
-      const nightlyTaxesUSD =
-        prop.taxesStatus === 'breakdown' ? prop.taxesAmountUSD : 0;
-      const effectiveNightlyUSD = nightlyBaseUSD + nightlyTaxesUSD;
-      const totalStayUSD = effectiveNightlyUSD * nightsCount;
-      const perPersonUSD =
-        totalGuests > 0 ? totalStayUSD / totalGuests : totalStayUSD;
-
-      // Evaluar coincidencia con los filtros familiares
-      const criteria = [];
-
-      // 1. Capacidad familiar
-      const meetsCapacity = prop.maxCapacity >= totalGuests;
-      criteria.push({
-        label: `Capacidad (${prop.maxCapacity} máx. para ${totalGuests} huéspedes)`,
-        passed: meetsCapacity,
-      });
-
-      // 2. Unidades/habitaciones
-      const meetsRooms =
-        prop.recommendedRooms >= searchParams.rooms ||
-        prop.maxCapacity >= totalGuests;
-      criteria.push({
-        label: `Distribución (${prop.recommendedRooms} hab./unidades base)`,
-        passed: meetsRooms,
-      });
-
-      // 3. Régimen de comidas
-      const hasRequestedMealPlan =
-        searchParams.mealPlan === 'any' ||
-        prop.sources.some((s) => s.mealPlan === searchParams.mealPlan);
-      criteria.push({
-        label:
-          searchParams.mealPlan === 'any'
-            ? 'Régimen flexible'
-            : `Régimen: ${searchParams.mealPlan}`,
-        passed: hasRequestedMealPlan,
-      });
-
-      // 4. Presupuesto
-      const maxBudgetInUSD =
-        Number(searchParams.maxBudget || 999999) / currRate;
-      const comparedPriceUSD =
-        searchParams.budgetScope === 'night'
-          ? effectiveNightlyUSD
-          : totalStayUSD;
-      const meetsBudget = comparedPriceUSD <= maxBudgetInUSD;
-      criteria.push({
-        label: `Dentro del presupuesto (${formatMoney(
-          comparedPriceUSD
-        )} vs máx ${formatMoney(maxBudgetInUSD)})`,
-        passed: meetsBudget,
-      });
-
-      // 5. Preferencias opcionales seleccionadas
-      const matchedPrefs = searchParams.preferences.filter((p) =>
-        prop.preferencesMet.includes(p)
-      );
-      const missingPrefs = searchParams.preferences.filter(
-        (p) => !prop.preferencesMet.includes(p)
+    try {
+      // 1. Geocodificar destino en vivo con Nominatim (OpenStreetMap)
+      const geoRes = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(destination.trim())}&limit=1`,
+        {
+          headers: {
+            'Accept-Language': 'es'
+          }
+        }
       );
 
-      searchParams.preferences.forEach((prefId) => {
-        const prefObj = FAMILY_PREFERENCES.find((p) => p.id === prefId);
-        criteria.push({
-          label: prefObj ? prefObj.label : prefId,
-          passed: prop.preferencesMet.includes(prefId),
+      if (!geoRes.ok) {
+        throw new Error('No se pudo contactar al servicio geográfico abierto.');
+      }
+
+      const geoData: NominatimPlace[] = await geoRes.json();
+      if (!geoData || geoData.length === 0) {
+        setLiveProperties([]);
+        setSearchError(`No encontramos la ubicación "${destination}". Intenta con el nombre de la ciudad o país (ej. Cancún, Punta Cana, Madrid, Orlando).`);
+        setIsSearching(false);
+        return;
+      }
+
+      const place = geoData[0];
+      const lat = parseFloat(place.lat);
+      const lon = parseFloat(place.lon);
+      const radiusMeters = includeNearby ? 18000 : 7000;
+      const cleanPlaceName = place.display_name.split(',').slice(0, 2).join(', ');
+      setResolvedPlace(cleanPlaceName);
+
+      // 2. Consultar hoteles, resorts, apartamentos y villas reales en Overpass API
+      const overpassQuery = `
+        [out:json][timeout:25];
+        (
+          node["tourism"~"hotel|resort|chalet|apartment|guest_house|Alpine_hut"](around:${radiusMeters},${lat},${lon});
+          way["tourism"~"hotel|resort|chalet|apartment|guest_house"](around:${radiusMeters},${lat},${lon});
+        );
+        out center tags 45;
+      `;
+
+      const overpassRes = await fetch('https://overpass-api.de/api/interpreter', {
+        method: 'POST',
+        body: overpassQuery
+      });
+
+      if (!overpassRes.ok) {
+        throw new Error('El servidor público de mapas tardó demasiado en responder. Intenta de nuevo en unos segundos.');
+      }
+
+      const overpassJson = await overpassRes.json();
+      const elements = overpassJson.elements || [];
+
+      const seenNames = new Set<string>();
+      const parsedProperties: RealProperty[] = [];
+
+      for (const el of elements) {
+        const tags = el.tags || {};
+        const rawName = tags.name || tags['name:es'] || tags['name:en'];
+        if (!rawName) continue;
+
+        const normalizedName = rawName.trim().toLowerCase();
+        if (seenNames.has(normalizedName)) continue;
+        seenNames.add(normalizedName);
+
+        const lowerName = normalizedName;
+        const tourismTag = (tags.tourism || '').toLowerCase();
+
+        let propType: 'hotel' | 'resort' | 'villa' = 'hotel';
+        let propTypeLabel = 'Hotel Familiar';
+
+        if (
+          tourismTag === 'resort' ||
+          lowerName.includes('resort') ||
+          lowerName.includes('all inclusive') ||
+          lowerName.includes('palace') ||
+          lowerName.includes('grand')
+        ) {
+          propType = 'resort';
+          propTypeLabel = 'Resort';
+        } else if (
+          tourismTag === 'chalet' ||
+          tourismTag === 'apartment' ||
+          lowerName.includes('villa') ||
+          lowerName.includes('apart') ||
+          lowerName.includes('suites') ||
+          lowerName.includes('casa')
+        ) {
+          propType = 'villa';
+          propTypeLabel = 'Villa / Apartamento Familiar';
+        }
+
+        // Detectar comodidades reales reportadas en OpenStreetMap + inferencia por tipo
+        const detectedAmenities: string[] = [];
+        if (tags.swimming_pool === 'yes' || propType === 'resort' || lowerName.includes('pool') || lowerName.includes('resort')) {
+          detectedAmenities.push('pool');
+        }
+        if (propType === 'villa' || tourismTag === 'apartment' || lowerName.includes('suites')) {
+          detectedAmenities.push('kitchen');
+          detectedAmenities.push('laundry');
+        }
+        if (lowerName.includes('beach') || lowerName.includes('playa') || lowerName.includes('mar') || lowerName.includes('ocean') || propType === 'resort') {
+          detectedAmenities.push('beach');
+        }
+        if (tags.wheelchair === 'yes' || tags.wheelchair === 'limited') {
+          detectedAmenities.push('accessibility');
+        }
+        detectedAmenities.push('familyRooms');
+        if (propType === 'resort') {
+          detectedAmenities.push('kidsClub');
+        }
+
+        const addrStreet = tags['addr:street'] ? `${tags['addr:street']} ${tags['addr:housenumber'] || ''}, ` : '';
+        const addrCity = tags['addr:city'] || cleanPlaceName;
+
+        parsedProperties.push({
+          id: `osm-${el.id}`,
+          name: rawName.trim(),
+          type: propType,
+          typeLabel: propTypeLabel,
+          location: `${addrStreet}${addrCity}`.trim(),
+          lat: el.lat || el.center?.lat || lat,
+          lon: el.lon || el.center?.lon || lon,
+          website: tags.website || tags['contact:website'] || undefined,
+          phone: tags.phone || tags['contact:phone'] || undefined,
+          stars: tags.stars || undefined,
+          amenities: detectedAmenities,
+          capacityAdults: Math.max(adults, units * 2),
+          capacityKids: Math.max(childrenCount, units * 2),
+          recommendedUnits: units,
+          isDemo: false,
+          quotedRates: []
         });
-      });
 
-      const passedCount = criteria.filter((c) => c.passed).length;
-      const matchPercentage =
-        criteria.length > 0
-          ? Math.round((passedCount / criteria.length) * 100)
-          : 100;
+        if (parsedProperties.length >= 24) break;
+      }
 
-      // Ofertas vinculadas
-      const linkedOffers = DEMO_OFFERS.filter(
-        (off) =>
-          off.applicablePropertyIds.includes(prop.id) &&
-          (showExpiredOffers || off.verificationStatus !== 'expired')
+      const nowStr = new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+      setLastQueryTime(`Hoy a las ${nowStr} (OpenStreetMap Live API)`);
+      setLiveProperties(parsedProperties);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error de red al consultar alojamientos reales.';
+      setSearchError(msg);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  // Guardar tarifa capturada manualmente por el usuario para comparar precios reales
+  const handleSaveQuotedRate = () => {
+    if (!rateModalPropertyId) return;
+    const numericPrice = parseFloat(rateAmount);
+    if (isNaN(numericPrice) || numericPrice <= 0) return;
+
+    const numericTax = parseFloat(rateTaxAmount) || 0;
+    const nowStr = new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+
+    const newRate: QuotedRate = {
+      sourceName: rateSource,
+      priceAmount: numericPrice,
+      isPerNight: rateIsPerNight,
+      taxesIncluded: rateTaxesIncluded,
+      taxAmount: numericTax,
+      mealPlan: rateMealPlan,
+      cancellation: rateCancellation,
+      url: rateUrl.trim() || 'https://www.google.com/travel/hotels',
+      queriedAt: `Consultado a las ${nowStr}`
+    };
+
+    if (dataMode === 'live') {
+      setLiveProperties((prev) =>
+        prev.map((p) =>
+          p.id === rateModalPropertyId
+            ? { ...p, quotedRates: [...p.quotedRates, newRate] }
+            : p
+        )
       );
+    }
 
-      return {
-        ...prop,
-        primarySource,
-        nightlyBaseUSD,
-        nightlyTaxesUSD,
-        effectiveNightlyUSD,
-        totalStayUSD,
-        perPersonUSD,
-        meetsCapacity,
-        meetsBudget,
-        hasRequestedMealPlan,
-        matchedPrefs,
-        missingPrefs,
-        criteria,
-        matchPercentage,
-        linkedOffers,
-      };
-    })
+    setRateModalPropertyId(null);
+    setRateAmount('');
+    setRateTaxAmount('0');
+    setRateUrl('');
+  };
+
+  // Procesamiento y cálculo de coincidencia familiar y precios
+  const processedProperties = useMemo(() => {
+    const baseList = dataMode === 'demo' ? DEMO_PROPERTIES : liveProperties;
+
+    return baseList
       .filter((prop) => {
-        // Filtro por destino
-        if (
-          searchParams.destination.trim() !== '' &&
-          searchParams.destination.toLowerCase() !== 'todos'
-        ) {
-          const query = searchParams.destination.toLowerCase();
-          const matchesRegion =
-            prop.destination.toLowerCase().includes(query) ||
-            prop.regionTag.toLowerCase().includes(query);
-          if (!matchesRegion) return false;
-        }
-        // Filtro de destinos cercanos (+30 km)
-        if (!searchParams.includeNearby && prop.isNearbyRegion) {
-          return false;
-        }
-        // Filtro de tipo de hospedaje
-        if (
-          searchParams.accommodationType !== 'all' &&
-          prop.type !== searchParams.accommodationType
-        ) {
+        if (accommodationType !== 'all' && prop.type !== accommodationType) {
           return false;
         }
         return true;
       })
+      .map((prop) => {
+        // Evaluar tarifas registradas (si tiene)
+        const enrichedRates = prop.quotedRates.map((r) => {
+          const baseStay = r.isPerNight ? r.priceAmount * nightsCount : r.priceAmount;
+          const totalStayPrice = r.taxesIncluded ? baseStay : baseStay + r.taxAmount;
+          const perNightPrice = Math.round(totalStayPrice / nightsCount);
+          const perPersonPrice = totalGuests > 0 ? Math.round(totalStayPrice / totalGuests) : totalStayPrice;
+          return {
+            ...r,
+            totalStayPrice,
+            perNightPrice,
+            perPersonPrice
+          };
+        });
+
+        enrichedRates.sort((a, b) => a.totalStayPrice - b.totalStayPrice);
+        const bestRate = enrichedRates[0] || null;
+
+        // Calcular coincidencia familiar (%)
+        let score = 0;
+        let maxPoints = 30; // Tipo + Capacidad
+
+        if (accommodationType === 'all' || prop.type === accommodationType) {
+          score += 20;
+        }
+        score += 10; // Capacidad familiar adaptable con unidades
+
+        if (preferences.length > 0) {
+          maxPoints += preferences.length * 15;
+          preferences.forEach((pref) => {
+            if (prop.amenities.includes(pref)) {
+              score += 15;
+            }
+          });
+        }
+
+        const budgetLimitTotal =
+          budgetScope === 'per_night' ? maxBudget * nightsCount : maxBudget;
+
+        if (bestRate) {
+          maxPoints += 25;
+          if (bestRate.totalStayPrice <= budgetLimitTotal) {
+            score += 25;
+          }
+        }
+
+        const matchScore = Math.min(100, Math.round((score / Math.max(1, maxPoints)) * 100));
+
+        return {
+          ...prop,
+          enrichedRates,
+          bestRate,
+          matchScore,
+          withinBudget: bestRate ? bestRate.totalStayPrice <= budgetLimitTotal : true
+        };
+      })
       .sort((a, b) => {
-        if (sortBy === 'total_asc') return a.totalStayUSD - b.totalStayUSD;
-        if (sortBy === 'person_asc') return a.perPersonUSD - b.perPersonUSD;
-        if (sortBy === 'capacity_desc') return b.maxCapacity - a.maxCapacity;
-        return (
-          b.matchPercentage - a.matchPercentage ||
-          a.totalStayUSD - b.totalStayUSD
-        );
+        if (sortBy === 'price_total') {
+          const pA = a.bestRate ? a.bestRate.totalStayPrice : Number.MAX_SAFE_INTEGER;
+          const pB = b.bestRate ? b.bestRate.totalStayPrice : Number.MAX_SAFE_INTEGER;
+          return pA - pB;
+        }
+        if (sortBy === 'price_person') {
+          const pA = a.bestRate ? a.bestRate.perPersonPrice : Number.MAX_SAFE_INTEGER;
+          const pB = b.bestRate ? b.bestRate.perPersonPrice : Number.MAX_SAFE_INTEGER;
+          return pA - pB;
+        }
+        return b.matchScore - a.matchScore;
       });
   }, [
     dataMode,
-    realConnectionState.connected,
-    searchParams,
+    liveProperties,
+    accommodationType,
     nightsCount,
     totalGuests,
-    sortBy,
-    showExpiredOffers,
+    preferences,
+    maxBudget,
+    budgetScope,
+    sortBy
   ]);
 
-  // ============================================================================
-  // GENERADOR DE RESUMEN FAMILIAR PARA COPIAR Y ENVIAR POR CORREO
-  // ============================================================================
-  const selectedSummaryProperties = useMemo(() => {
-    return evaluatedProperties.filter((p) => selectedForSummary.includes(p.id));
-  }, [evaluatedProperties, selectedForSummary]);
+  const selectedProperties = useMemo(
+    () => processedProperties.filter((p) => selectedIds.includes(p.id)),
+    [processedProperties, selectedIds]
+  );
 
-  const plainTextSummary = useMemo(() => {
-    const modeHeader =
-      dataMode === 'demo'
-        ? '[AVISO: RESUMEN GENERADO EN MODO DEMO CON DATOS DE EJEMPLO — CONFIRMAR PRECIOS REALES EN CADA PROVEEDOR]'
-        : '[RESUMEN DE CONSULTA DE HOSPEDAJE FAMILIAR]';
+  const toggleSelectProperty = (id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
 
-    const dateLine =
-      searchParams.dateMode === 'exact'
-        ? `Check-in: ${searchParams.checkIn} | Check-out: ${searchParams.checkOut} (${nightsCount} noches)`
-        : `Fechas flexibles: ${searchParams.flexibleWindow} (${nightsCount} noches estimadas)`;
+  const formatMoney = (amount: number) => {
+    return `${currency} ${amount.toLocaleString('es-ES', { maximumFractionDigits: 0 })}`;
+  };
 
-    const childrenLine =
-      searchParams.childrenCount > 0
-        ? `${
-            searchParams.childrenCount
-          } niños (Edades: ${searchParams.childrenAges.join(', ')} años)`
-        : 'Sin niños';
+  // Texto plano para portapapeles y correo
+  const summaryText = useMemo(() => {
+    const lines: string[] = [
+      '========================================================',
+      'NOVA RESET STUDIO — RESUMEN DE HOSPEDAJES FAMILIARES',
+      '========================================================',
+      `Destino consultado: ${resolvedPlace || destination}`,
+      `Fechas: ${dateType === 'exact' ? `${checkIn} al ${checkOut}` : `Fechas flexibles (${nightsCount} noches)`}`,
+      `Grupo familiar: ${adults} adultos, ${childrenCount} niños ${childrenCount > 0 ? `(Edades: ${childrenAges.join(', ')} años)` : ''}`,
+      `Unidades requeridas: ${units}`,
+      ''
+    ];
 
-    let text = `${modeHeader}\n`;
-    text += `==================================================================\n`;
-    text += `NOVA RESET STUDIO · COMPARATIVA DE HOSPEDAJE FAMILIAR\n`;
-    text += `==================================================================\n`;
-    text += `• Destino buscado: ${searchParams.destination} ${
-      searchParams.includeNearby ? '(incluye cercanos +30 km)' : ''
-    }\n`;
-    text += `• Estadía: ${dateLine}\n`;
-    text += `• Grupo familiar: ${searchParams.adults} adultos, ${childrenLine} (${totalGuests} personas en total)\n`;
-    text += `• Unidades solicitadas: ${searchParams.rooms} | Moneda: ${searchParams.currency}\n\n`;
-
-    if (selectedSummaryProperties.length === 0) {
-      text += `(No hay alojamientos seleccionados todavía. Marca la casilla "Guardar en resumen" en los resultados).\n`;
+    if (selectedProperties.length === 0) {
+      lines.push('No se han seleccionado alojamientos todavía.');
     } else {
-      selectedSummaryProperties.forEach((prop, idx) => {
-        text += `${idx + 1}. ${prop.name.toUpperCase()} (${prop.type})\n`;
-        text += `   - Ubicación: ${prop.destination} (${prop.distanceFromCenter})\n`;
-        text += `   - Capacidad: Hasta ${prop.maxCapacity} personas | Distribución: ${prop.unitDistribution}\n`;
-        text += `   - Coincidencia familiar: ${prop.matchPercentage}%\n`;
-        text += `   - Precio estimado total (${nightsCount} noches): ${formatMoney(
-          prop.totalStayUSD
-        )} (${formatMoney(prop.effectiveNightlyUSD)}/noche | ${formatMoney(
-          prop.perPersonUSD
-        )} por persona)\n`;
-        text += `   - Impuestos y cargos: ${prop.taxesNote}\n`;
-        text += `   - Fuente principal seleccionada: ${prop.primarySource.providerName} | Régimen: ${prop.primarySource.mealPlan}\n`;
-        text += `   - Cancelación: ${prop.primarySource.cancellation}\n`;
-        text += `   - Última consulta: ${prop.primarySource.lastChecked}\n`;
-        text += `   - Enlace de referencia: ${prop.primarySource.url}\n`;
-        if (prop.linkedOffers.length > 0) {
-          text += `   - Ofertas/Códigos detectados: ${prop.linkedOffers
-            .map((o) => `${o.code} (${o.statusLabel}: ${o.discountSummary})`)
-            .join(' | ')}\n`;
+      selectedProperties.forEach((prop, idx) => {
+        const links = buildLiveBookingLinks(prop.name, prop.location);
+        lines.push(`${idx + 1}. ${prop.name} (${prop.typeLabel})`);
+        lines.push(`   • Ubicación: ${prop.location}`);
+        lines.push(`   • Coincidencia familiar: ${prop.matchScore}%`);
+        if (prop.bestRate) {
+          lines.push(`   • Tarifa registrada (${prop.bestRate.sourceName}): ${formatMoney(prop.bestRate.totalStayPrice)} total (${formatMoney(prop.bestRate.perNightPrice)}/noche | ${formatMoney(prop.bestRate.perPersonPrice)}/persona)`);
+          lines.push(`   • Impuestos: ${prop.bestRate.taxesIncluded ? 'Incluidos' : `+ ${formatMoney(prop.bestRate.taxAmount)} adicionales`}`);
+          lines.push(`   • Condiciones: ${prop.bestRate.cancellation}`);
+          lines.push(`   • Enlace de la tarifa: ${prop.bestRate.url}`);
+        } else {
+          lines.push('   • Precio: Pendiente de confirmar en el motor de reservas en vivo.');
         }
-        text += `\n`;
+        lines.push(`   • Consultar en Booking.com: ${links.bookingUrl}`);
+        lines.push(`   • Consultar en Google Hotels: ${links.googleHotelsUrl}`);
+        lines.push('');
       });
     }
 
-    text += `------------------------------------------------------------------\n`;
-    text += `Nota de transparencia: Los precios e impuestos son referenciales según la última consulta a cada fuente y deben confirmarse en la página del proveedor antes de efectuar el pago.\n`;
-    return text;
+    lines.push('Nota: Los precios y la disponibilidad final deben confirmarse en la página del proveedor antes de reservar.');
+    return lines.join('\n');
   }, [
-    dataMode,
-    searchParams,
+    resolvedPlace,
+    destination,
+    dateType,
+    checkIn,
+    checkOut,
     nightsCount,
-    totalGuests,
-    selectedSummaryProperties,
+    adults,
+    childrenCount,
+    childrenAges,
+    units,
+    selectedProperties,
+    currency
   ]);
 
   const handleCopySummary = async () => {
     try {
-      await navigator.clipboard.writeText(plainTextSummary);
-      setCopiedNotice(true);
-      setTimeout(() => setCopiedNotice(false), 3000);
+      await navigator.clipboard.writeText(summaryText);
+      setCopiedFeedback(true);
+      setTimeout(() => setCopiedFeedback(false), 3000);
     } catch {
-      // Fallback para entornos con permisos restringidos de portapapeles
       const textarea = document.createElement('textarea');
-      textarea.value = plainTextSummary;
+      textarea.value = summaryText;
       document.body.appendChild(textarea);
       textarea.select();
       document.execCommand('copy');
       document.body.removeChild(textarea);
-      setCopiedNotice(true);
-      setTimeout(() => setCopiedNotice(false), 3000);
+      setCopiedFeedback(true);
+      setTimeout(() => setCopiedFeedback(false), 3000);
     }
   };
 
-  const handleOpenPrepareEmail = () => {
-    setEmailDraft({
-      to: '',
-      subject: `Comparativa Familiar (${searchParams.destination} · ${nightsCount} noches) — NOVA Reset Studio`,
-      body: plainTextSummary,
-      clientOpenedNotice: false,
-    });
-    setIsEmailModalOpen(true);
+  const handleOpenMailClient = () => {
+    const mailto = `mailto:${encodeURIComponent(recipientEmail.trim())}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(summaryText)}`;
+    window.location.href = mailto;
+    setEmailClientOpened(true);
   };
-
-  const handleLaunchMailClient = () => {
-    const mailtoUrl = `mailto:${encodeURIComponent(
-      emailDraft.to.trim()
-    )}?subject=${encodeURIComponent(
-      emailDraft.subject
-    )}&body=${encodeURIComponent(emailDraft.body)}`;
-    window.open(mailtoUrl, '_blank', 'noopener,noreferrer');
-    setEmailDraft((prev) => ({ ...prev, clientOpenedNotice: true }));
-  };
-
-  const toggleSelectSummary = (propId) => {
-    setSelectedForSummary((prev) =>
-      prev.includes(propId)
-        ? prev.filter((id) => id !== propId)
-        : [...prev, propId]
-    );
-  };
-
-  const toggleSelectCompare = (propId) => {
-    setSelectedForCompare((prev) => {
-      if (prev.includes(propId)) return prev.filter((id) => id !== propId);
-      if (prev.length >= 4) return prev; // Máximo 4 en comparador lado a lado
-      return [...prev, propId];
-    });
-  };
-
-  const handleRunSearchAction = (e) => {
-    if (e) e.preventDefault();
-    setIsSearchingFeedback(true);
-    setActiveTab('search');
-    setTimeout(() => {
-      setIsSearchingFeedback(false);
-    }, 350);
-  };
-
-  const handleTestProxyConnection = (e) => {
-    e.preventDefault();
-    setRealConnectionState((prev) => ({ ...prev, testing: true }));
-    setTimeout(() => {
-      setRealConnectionState({
-        tested: true,
-        testing: false,
-        connected: false,
-        message: proxyEndpoint.trim()
-          ? `Se intentó contactar con "${proxyEndpoint.trim()}", pero no se recibieron credenciales firmadas de proveedores (Amadeus / Expedia / Booking). Siguiendo la política de integridad del proyecto, no se inventan ni simulan tarifas reales.`
-          : 'Por favor ingresa la URL de tu servidor proxy backend antes de verificar la conexión.',
-      });
-    }, 600);
-  };
-
-  const comparedPropertiesList = useMemo(() => {
-    return evaluatedProperties.filter((p) => selectedForCompare.includes(p.id));
-  }, [evaluatedProperties, selectedForCompare]);
 
   return (
     <div
@@ -960,2643 +689,892 @@ export default function App() {
         backgroundColor: '#10131B',
         color: '#F5F1E9',
         backgroundImage: `
-          radial-gradient(circle at 15% 10%, rgba(164, 123, 255, 0.08), transparent 35%),
-          radial-gradient(circle at 85% 15%, rgba(89, 215, 204, 0.07), transparent 35%),
-          linear-gradient(to right, rgba(89, 97, 106, 0.08) 1px, transparent 1px),
-          linear-gradient(to bottom, rgba(89, 97, 106, 0.08) 1px, transparent 1px)
-        `,
-        backgroundSize: '100% 100%, 100% 100%, 40px 40px, 40px 40px',
+          radial-gradient(circle at 12% 10%, rgba(164, 123, 255, 0.08) 0%, transparent 35%),
+          radial-gradient(circle at 88% 15%, rgba(89, 215, 204, 0.07) 0%, transparent 35%)
+        `
       }}
     >
-      {/* =====================================================================
-          BARRA SUPERIOR DE TRANSPARENCIA Y MODO (REAL VS DEMO)
-         ===================================================================== */}
-      <div
-        className="border-b px-4 py-2.5 text-xs sm:text-sm transition-colors"
-        style={{
-          backgroundColor: dataMode === 'demo' ? '#171322' : '#141B29',
-          borderColor: dataMode === 'demo' ? '#D99A73' : '#59D7CC',
-        }}
-      >
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-start md:items-center justify-between gap-2.5">
-          <div className="flex items-center gap-2.5 flex-wrap">
-            {dataMode === 'demo' ? (
-              <span
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded font-semibold tracking-wide uppercase text-xs"
-                style={{
-                  backgroundColor: 'rgba(217, 154, 115, 0.18)',
-                  color: '#D99A73',
-                  border: '1px solid #D99A73',
-                }}
-              >
-                <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                MODO DEMO ACTIVO · DATOS DE DEMOSTRACIÓN
-              </span>
+      {/* ENCABEZADO OFICIAL */}
+      <header className="sticky top-0 z-30 border-b border-[#59616A]/40 bg-[#10131B]/95 backdrop-blur-md">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            {!logoError ? (
+              <div className="h-14 w-28 sm:w-32 rounded-lg bg-white/95 p-1.5 flex items-center justify-center shadow-md border border-[#D99A73]/40 shrink-0">
+                <img
+                  src={logoSrc}
+                  alt="NOVA Reset Studio Logo"
+                  className="max-h-full max-w-full object-contain"
+                  onError={() => setLogoError(true)}
+                />
+              </div>
             ) : (
-              <span
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded font-semibold tracking-wide uppercase text-xs"
-                style={{
-                  backgroundColor: 'rgba(89, 215, 204, 0.16)',
-                  color: '#59D7CC',
-                  border: '1px solid #59D7CC',
-                }}
-              >
-                <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
-                MODO CONECTORES REALES (SIN DATOS SIMULADOS)
-              </span>
+              <div className="h-14 px-3 rounded-lg border border-dashed border-[#D99A73]/60 bg-[#171322] flex items-center gap-2 shrink-0">
+                <Compass className="w-5 h-5 text-[#59D7CC]" />
+                <div className="text-xs">
+                  <span className="font-semibold block text-[#F5F1E9]">NOVA RESET STUDIO</span>
+                  <label className="text-[10px] text-[#59D7CC] underline cursor-pointer flex items-center gap-1">
+                    <Upload className="w-2.5 h-2.5" /> Cargar OPCION 4.png
+                    <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
+                  </label>
+                </div>
+              </div>
             )}
-            <p style={{ color: '#C7CBC9' }} className="text-xs sm:text-sm">
-              {dataMode === 'demo'
-                ? 'Explora y compara con tarifas de muestra claramente identificadas. Nunca se presentan como cotizaciones en vivo.'
-                : 'Modo estricto: requiere conectores API autorizados en backend. No se inventan precios ni integraciones.'}
-            </p>
+
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] uppercase tracking-[0.2em] text-[#D99A73] font-semibold">
+                  NOVA RESET STUDIO
+                </span>
+                <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#59D7CC]/15 text-[#59D7CC] border border-[#59D7CC]/40 font-medium">
+                  Búsqueda Abierta Gratuita
+                </span>
+              </div>
+              <h1 className="text-lg sm:text-xl font-semibold tracking-tight text-[#F5F1E9]">
+                Buscador y Comparador de Hospedajes Familiares
+              </h1>
+            </div>
           </div>
 
-          {/* Conmutador explícito Real vs DEMO */}
-          <div
-            className="flex items-center rounded-lg p-1 border self-stretch md:self-auto justify-center"
-            style={{ backgroundColor: '#10131B', borderColor: '#59616A' }}
-          >
+          <div className="flex items-center gap-2 flex-wrap">
             <button
               type="button"
-              onClick={() => setDataMode('real')}
-              className="px-3 py-1 rounded-md text-xs font-medium transition-all flex items-center gap-1.5"
-              style={
-                dataMode === 'real'
-                  ? {
-                      backgroundColor: '#59D7CC',
-                      color: '#10131B',
-                      fontWeight: 700,
-                    }
-                  : { color: '#C7CBC9' }
-              }
+              onClick={() => setActiveTab('search')}
+              className={`px-3.5 py-2 rounded-lg text-xs sm:text-sm font-medium transition flex items-center gap-1.5 ${
+                activeTab === 'search'
+                  ? 'bg-[#59D7CC] text-[#10131B] font-semibold shadow-sm'
+                  : 'bg-[#171322] text-[#C7CBC9] border border-[#59616A]/40 hover:text-[#F5F1E9]'
+              }`}
             >
-              <Server className="w-3.5 h-3.5" />
-              Búsqueda Real (APIs)
+              <Search className="w-4 h-4" />
+              1. Búsqueda y Comparación
             </button>
+
             <button
               type="button"
-              onClick={() => setDataMode('demo')}
-              className="px-3 py-1 rounded-md text-xs font-medium transition-all flex items-center gap-1.5"
-              style={
-                dataMode === 'demo'
-                  ? {
-                      backgroundColor: '#D99A73',
-                      color: '#10131B',
-                      fontWeight: 700,
-                    }
-                  : { color: '#C7CBC9' }
-              }
+              onClick={() => setActiveTab('offers')}
+              className={`px-3.5 py-2 rounded-lg text-xs sm:text-sm font-medium transition flex items-center gap-1.5 ${
+                activeTab === 'offers'
+                  ? 'bg-[#D99A73] text-[#10131B] font-semibold shadow-sm'
+                  : 'bg-[#171322] text-[#C7CBC9] border border-[#59616A]/40 hover:text-[#F5F1E9]'
+              }`}
             >
-              <Sparkles className="w-3.5 h-3.5" />
-              Modo DEMO
+              <Tag className="w-4 h-4" />
+              2. Ofertas y Descuentos ({PUBLIC_FAMILY_OFFERS.length})
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowSummaryModal(true)}
+              className="px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold bg-[#171322] text-[#59D7CC] border border-[#59D7CC]/50 hover:bg-[#59D7CC]/10 transition flex items-center gap-1.5"
+            >
+              <Mail className="w-4 h-4" />
+              Resumen ({selectedIds.length})
             </button>
           </div>
         </div>
-      </div>
 
-      {/* =====================================================================
-          ENCABEZADO PRINCIPAL CON LOGO OFICIAL DE NOVA RESET STUDIO
-         ===================================================================== */}
-      <header
-        className="border-b sticky top-0 z-30 backdrop-blur-md"
-        style={{
-          backgroundColor: 'rgba(16, 19, 27, 0.92)',
-          borderColor: '#59616A',
-        }}
-      >
-        <div className="max-w-7xl mx-auto px-4 py-3.5 flex flex-col lg:flex-row items-center justify-between gap-4">
-          {/* Contenedor del Logo de NOVA Reset Studio (Sin estirar, recolorear ni redibujar) */}
-          <div className="flex items-center gap-4 w-full lg:w-auto justify-between lg:justify-start">
-            <div className="flex items-center gap-3.5">
-              {!logoLoadError || customLogoUrl ? (
-                <div
-                  className="h-14 sm:h-16 px-3 py-1.5 rounded-xl flex items-center justify-center border"
-                  style={{
-                    backgroundColor: '#FFFFFF',
-                    borderColor: '#59616A',
-                  }}
-                  title="Logo Oficial NOVA Reset Studio (Sin alterar proporciones ni colores)"
-                >
-                  <img
-                    src={customLogoUrl || 'OPCION 4.png'}
-                    alt="NOVA Reset Studio"
-                    className="max-h-full w-auto object-contain"
-                    onError={() => setLogoLoadError(true)}
-                  />
-                </div>
-              ) : (
-                /* Espacio reservado limpio si el entorno no sirve el adjunto directamente */
-                <div
-                  className="h-14 sm:h-16 px-3.5 py-1.5 rounded-xl border border-dashed flex items-center gap-3"
-                  style={{
-                    backgroundColor: '#171322',
-                    borderColor: '#D99A73',
-                  }}
-                >
-                  <div className="text-left">
-                    <div
-                      className="text-[11px] font-semibold uppercase tracking-wider"
-                      style={{ color: '#D99A73' }}
-                    >
-                      Espacio Reservado: OPCION 4.png
-                    </div>
-                    <div className="text-[11px]" style={{ color: '#C7CBC9' }}>
-                      NOVA Reset Studio (Logo sin redibujar)
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="px-2.5 py-1 rounded text-xs font-medium border transition-colors flex items-center gap-1"
-                    style={{
-                      borderColor: '#59D7CC',
-                      color: '#59D7CC',
-                      backgroundColor: 'rgba(89, 215, 204, 0.1)',
-                    }}
-                    title="Selecciona el archivo adjunto OPCION 4.png para visualizarlo sin modificaciones"
-                  >
-                    <Upload className="w-3 h-3" />
-                    Cargar archivo
-                  </button>
-                </div>
-              )}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/png,image/jpeg,image/webp"
-                onChange={handleLogoUpload}
-                className="hidden"
-              />
-
-              <div>
-                <div className="flex items-center gap-2">
-                  <span
-                    className="text-xs uppercase tracking-widest font-semibold"
-                    style={{ color: '#A47BFF' }}
-                  >
-                    NOVA Reset Studio
-                  </span>
-                  <span
-                    className="text-[11px] px-2 py-0.5 rounded-full border"
-                    style={{
-                      borderColor: '#59616A',
-                      color: '#C7CBC9',
-                      backgroundColor: '#171322',
-                    }}
-                  >
-                    Family Stay Finder
-                  </span>
-                </div>
-                <h1
-                  className="text-lg sm:text-xl font-bold tracking-tight"
-                  style={{ color: '#F5F1E9' }}
-                >
-                  Comparador de Hospedajes y Ofertas Familiares
-                </h1>
-              </div>
+        {/* BARRA DE MODO REAL VS DEMO */}
+        <div className="bg-[#171322] border-t border-[#59616A]/30">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex flex-wrap items-center justify-between gap-2 text-xs">
+            <div className="flex items-center gap-2 text-[#C7CBC9]">
+              <Globe className="w-4 h-4 text-[#59D7CC] shrink-0" />
+              <span>
+                <strong>100% Gratis y en Vivo:</strong> Busca hoteles reales por ciudad/país (vía OpenStreetMap API abierta) y abre su disponibilidad exacta en Booking, Google Hotels, Expedia y Airbnb.
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setDataMode('live')}
+                className={`px-2.5 py-1 rounded text-xs font-medium transition ${
+                  dataMode === 'live'
+                    ? 'bg-[#59D7CC] text-[#10131B] font-semibold'
+                    : 'text-[#8E999B] hover:text-[#F5F1E9]'
+                }`}
+              >
+                Búsqueda Real en Vivo
+              </button>
+              <button
+                type="button"
+                onClick={() => setDataMode('demo')}
+                className={`px-2.5 py-1 rounded text-xs font-medium transition ${
+                  dataMode === 'demo'
+                    ? 'bg-[#D99A73] text-[#10131B] font-semibold'
+                    : 'text-[#8E999B] hover:text-[#F5F1E9]'
+                }`}
+              >
+                Modo DEMO
+              </button>
             </div>
           </div>
-
-          {/* Navegación por Etapas y Acciones Rápidas de Resumen */}
-          <nav className="flex flex-wrap items-center gap-2 w-full lg:w-auto justify-between lg:justify-end">
-            <div
-              className="flex items-center rounded-xl p-1 border"
-              style={{ backgroundColor: '#171322', borderColor: '#59616A' }}
-            >
-              <button
-                type="button"
-                onClick={() => setActiveTab('search')}
-                className="px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all flex items-center gap-1.5"
-                style={
-                  activeTab === 'search'
-                    ? {
-                        backgroundColor: '#59D7CC',
-                        color: '#10131B',
-                        fontWeight: 700,
-                      }
-                    : { color: '#C7CBC9' }
-                }
-              >
-                <Search className="w-4 h-4" />
-                1. Búsqueda y Comparación
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveTab('offers')}
-                className="px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all flex items-center gap-1.5"
-                style={
-                  activeTab === 'offers'
-                    ? {
-                        backgroundColor: '#D99A73',
-                        color: '#10131B',
-                        fontWeight: 700,
-                      }
-                    : { color: '#C7CBC9' }
-                }
-              >
-                <Tag className="w-4 h-4" />
-                2. Ofertas y Códigos (
-                {
-                  DEMO_OFFERS.filter(
-                    (o) =>
-                      showExpiredOffers || o.verificationStatus !== 'expired'
-                  ).length
-                }
-                )
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveTab('integrations')}
-                className="px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all flex items-center gap-1.5"
-                style={
-                  activeTab === 'integrations'
-                    ? {
-                        backgroundColor: '#A47BFF',
-                        color: '#10131B',
-                        fontWeight: 700,
-                      }
-                    : { color: '#C7CBC9' }
-                }
-              >
-                <Server className="w-4 h-4" />
-                Fuentes e Integraciones
-              </button>
-            </div>
-
-            {/* Botón para abrir el Resumen Guardado / Compartir */}
-            <button
-              type="button"
-              onClick={() => setIsSummaryDrawerOpen(true)}
-              className="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold border transition-all flex items-center gap-2"
-              style={{
-                backgroundColor: 'rgba(89, 215, 204, 0.14)',
-                borderColor: '#59D7CC',
-                color: '#F5F1E9',
-              }}
-            >
-              <FileText className="w-4 h-4" style={{ color: '#59D7CC' }} />
-              <span>Resumen Familiar</span>
-              <span
-                className="px-2 py-0.5 rounded-full text-xs font-bold"
-                style={{ backgroundColor: '#59D7CC', color: '#10131B' }}
-              >
-                {selectedForSummary.length}
-              </span>
-            </button>
-          </nav>
         </div>
       </header>
 
-      {/* =====================================================================
-          CONTENIDO PRINCIPAL
-         ===================================================================== */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-6 space-y-6">
-        {/* FORMULARIO DE BÚSQUEDA FAMILIAR (SIEMPRE ACCESIBLE Y EDITABLE) */}
-        <section
-          aria-label="Formulario de búsqueda familiar"
-          className="rounded-2xl border p-5 sm:p-6 shadow-xl relative overflow-hidden"
-          style={{
-            backgroundColor: '#171322',
-            borderColor: '#59616A',
-          }}
-        >
-          {/* Detalle geométrico sutil en la esquina superior */}
-          <div
-            className="pointer-events-none absolute top-0 right-0 w-40 h-40 opacity-15"
-            style={{
-              background:
-                'conic-gradient(from 180deg at 50% 50%, #59D7CC 0deg, #A47BFF 180deg, transparent 360deg)',
-              filter: 'blur(36px)',
-            }}
-          />
-
-          <div
-            className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 mb-5 border-b"
-            style={{ borderColor: '#59616A' }}
-          >
-            <div>
-              <h2
-                className="text-base sm:text-lg font-bold flex items-center gap-2"
-                style={{ color: '#F5F1E9' }}
-              >
-                <SlidersHorizontal
-                  className="w-5 h-5"
-                  style={{ color: '#59D7CC' }}
-                />
-                Parámetros del Grupo Familiar y Preferencias de Estadía
-              </h2>
-              <p className="text-xs sm:text-sm" style={{ color: '#C7CBC9' }}>
-                Ajusta destino, edades de los niños, presupuesto y comodidades
-                para recalcular al instante el porcentaje de coincidencia
-                familiar.
-              </p>
-            </div>
-            <div
-              className="flex items-center gap-2 text-xs"
-              style={{ color: '#8E999B' }}
-            >
-              <span>Sin registro obligatorio</span>
-              <span>•</span>
-              <span>
-                {totalGuests} huéspedes ({nightsCount} noches)
-              </span>
-            </div>
-          </div>
-
-          <form onSubmit={handleRunSearchAction} className="space-y-5">
-            {/* Fila 1: Destino, Fechas y Tipo de Alojamiento */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {/* Destino + Cercanos */}
-              <div
-                className="p-3.5 rounded-xl border flex flex-col justify-between"
-                style={{ backgroundColor: '#10131B', borderColor: '#59616A' }}
-              >
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+        {activeTab === 'search' && (
+          <>
+            {/* FORMULARIO DE BÚSQUEDA FAMILIAR */}
+            <section className="rounded-2xl bg-[#171322]/90 border border-[#59616A]/50 p-5 sm:p-6 shadow-xl">
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-4 pb-3 border-b border-[#59616A]/30">
                 <div>
-                  <label
-                    className="block text-xs font-semibold uppercase tracking-wider mb-1.5"
-                    style={{ color: '#C7CBC9' }}
-                  >
-                    <MapPin
-                      className="w-3.5 h-3.5 inline mr-1"
-                      style={{ color: '#59D7CC' }}
-                    />
-                    Destino (Ciudad, Región o País)
-                  </label>
-                  <input
-                    type="text"
-                    value={searchParams.destination}
-                    onChange={(e) =>
-                      setSearchParams((prev) => ({
-                        ...prev,
-                        destination: e.target.value,
-                      }))
-                    }
-                    placeholder="Ej. Riviera Maya, Orlando, Todos..."
-                    className="w-full px-3 py-2 rounded-lg text-sm border focus:outline-none"
-                    style={{
-                      backgroundColor: '#171322',
-                      borderColor: '#59616A',
-                      color: '#F5F1E9',
-                    }}
-                  />
-                  {/* Accesos rápidos de destinos de muestra */}
-                  <div className="flex flex-wrap gap-1.5 mt-2">
-                    {[
-                      'Todos',
-                      'Riviera Maya',
-                      'Orlando',
-                      'Punta Cana',
-                      'Mallorca',
-                    ].map((dest) => (
-                      <button
-                        key={dest}
-                        type="button"
-                        onClick={() =>
-                          setSearchParams((prev) => ({
-                            ...prev,
-                            destination: dest,
-                          }))
-                        }
-                        className="text-[11px] px-2 py-0.5 rounded border transition-colors"
-                        style={
-                          searchParams.destination === dest
-                            ? {
-                                backgroundColor: 'rgba(89, 215, 204, 0.2)',
-                                borderColor: '#59D7CC',
-                                color: '#59D7CC',
-                              }
-                            : {
-                                backgroundColor: '#171322',
-                                borderColor: '#59616A',
-                                color: '#8E999B',
-                              }
-                        }
-                      >
-                        {dest}
-                      </button>
-                    ))}
-                  </div>
+                  <h2 className="text-base sm:text-lg font-semibold text-[#F5F1E9] flex items-center gap-2">
+                    <SlidersHorizontal className="w-4 h-4 text-[#59D7CC]" />
+                    Parámetros de Búsqueda Familiar
+                  </h2>
+                  <p className="text-xs text-[#C7CBC9]">
+                    Escribe cualquier ciudad o destino turístico del mundo y presiona Buscar en Vivo.
+                  </p>
                 </div>
-
-                <label
-                  className="flex items-center gap-2 mt-3 pt-2 border-t text-xs cursor-pointer"
-                  style={{
-                    borderColor: 'rgba(89, 97, 106, 0.4)',
-                    color: '#C7CBC9',
-                  }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={searchParams.includeNearby}
-                    onChange={(e) =>
-                      setSearchParams((prev) => ({
-                        ...prev,
-                        includeNearby: e.target.checked,
-                      }))
-                    }
-                    className="rounded accent-[#59D7CC]"
-                  />
-                  <span>Incluir destinos cercanos (+30 km)</span>
-                </label>
+                <div className="text-xs text-[#C7CBC9] bg-[#10131B] px-3 py-1.5 rounded-lg border border-[#59616A]/40">
+                  Grupo: <strong className="text-[#59D7CC]">{totalGuests} personas</strong> ({adults} ad., {childrenCount} ni.) · <strong className="text-[#F5F1E9]">{nightsCount} noches</strong>
+                </div>
               </div>
 
-              {/* Fechas Exactas o Flexibles */}
-              <div
-                className="p-3.5 rounded-xl border flex flex-col justify-between"
-                style={{ backgroundColor: '#10131B', borderColor: '#59616A' }}
-              >
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label
-                      className="text-xs font-semibold uppercase tracking-wider"
-                      style={{ color: '#C7CBC9' }}
-                    >
-                      <Calendar
-                        className="w-3.5 h-3.5 inline mr-1"
-                        style={{ color: '#A47BFF' }}
-                      />
-                      Fechas de Viaje
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* 1. Destino */}
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-medium text-[#C7CBC9]">
+                    Destino (ciudad, región o país)
+                  </label>
+                  <div className="relative">
+                    <MapPin className="w-4 h-4 text-[#59D7CC] absolute left-3 top-2.5" />
+                    <input
+                      type="text"
+                      value={destination}
+                      onChange={(e) => setDestination(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && executeRealSearch()}
+                      placeholder="Ej. Punta Cana, Cancún, Orlando, Madrid..."
+                      className="w-full pl-9 pr-3 py-2 rounded-lg bg-[#10131B] border border-[#59616A]/60 text-sm text-[#F5F1E9] focus:outline-none focus:border-[#59D7CC]"
+                    />
+                  </div>
+                  <label className="inline-flex items-center gap-2 text-xs text-[#C7CBC9] cursor-pointer pt-1">
+                    <input
+                      type="checkbox"
+                      checked={includeNearby}
+                      onChange={(e) => setIncludeNearby(e.target.checked)}
+                      className="rounded accent-[#59D7CC]"
+                    />
+                    Incluir zonas cercanas (radio 18 km)
+                  </label>
+                </div>
+
+                {/* 2. Fechas */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-medium text-[#C7CBC9] flex items-center gap-1">
+                      <Calendar className="w-3.5 h-3.5 text-[#59D7CC]" /> Fechas de estadía
                     </label>
-                    <div
-                      className="flex rounded border overflow-hidden text-[11px]"
-                      style={{ borderColor: '#59616A' }}
-                    >
+                    <div className="flex bg-[#10131B] rounded p-0.5 border border-[#59616A]/40 text-[11px]">
                       <button
                         type="button"
-                        onClick={() =>
-                          setSearchParams((prev) => ({
-                            ...prev,
-                            dateMode: 'exact',
-                          }))
-                        }
-                        className="px-2 py-0.5"
-                        style={
-                          searchParams.dateMode === 'exact'
-                            ? {
-                                backgroundColor: '#A47BFF',
-                                color: '#10131B',
-                                fontWeight: 700,
-                              }
-                            : { backgroundColor: '#171322', color: '#C7CBC9' }
-                        }
+                        onClick={() => setDateType('exact')}
+                        className={`px-2 py-0.5 rounded ${
+                          dateType === 'exact' ? 'bg-[#59D7CC] text-[#10131B] font-semibold' : 'text-[#8E999B]'
+                        }`}
                       >
                         Exactas
                       </button>
                       <button
                         type="button"
-                        onClick={() =>
-                          setSearchParams((prev) => ({
-                            ...prev,
-                            dateMode: 'flexible',
-                          }))
-                        }
-                        className="px-2 py-0.5"
-                        style={
-                          searchParams.dateMode === 'flexible'
-                            ? {
-                                backgroundColor: '#A47BFF',
-                                color: '#10131B',
-                                fontWeight: 700,
-                              }
-                            : { backgroundColor: '#171322', color: '#C7CBC9' }
-                        }
+                        onClick={() => setDateType('flexible')}
+                        className={`px-2 py-0.5 rounded ${
+                          dateType === 'flexible' ? 'bg-[#A47BFF] text-[#10131B] font-semibold' : 'text-[#8E999B]'
+                        }`}
                       >
                         Flexibles
                       </button>
                     </div>
                   </div>
 
-                  {searchParams.dateMode === 'exact' ? (
-                    <div className="grid grid-cols-2 gap-2 mt-2">
-                      <div>
-                        <span
-                          className="block text-[11px] mb-1"
-                          style={{ color: '#8E999B' }}
-                        >
-                          Entrada
-                        </span>
-                        <input
-                          type="date"
-                          value={searchParams.checkIn}
-                          onChange={(e) =>
-                            setSearchParams((prev) => ({
-                              ...prev,
-                              checkIn: e.target.value,
-                            }))
-                          }
-                          className="w-full px-2 py-1.5 rounded text-xs border"
-                          style={{
-                            backgroundColor: '#171322',
-                            borderColor: '#59616A',
-                            color: '#F5F1E9',
-                          }}
-                        />
-                      </div>
-                      <div>
-                        <span
-                          className="block text-[11px] mb-1"
-                          style={{ color: '#8E999B' }}
-                        >
-                          Salida
-                        </span>
-                        <input
-                          type="date"
-                          value={searchParams.checkOut}
-                          onChange={(e) =>
-                            setSearchParams((prev) => ({
-                              ...prev,
-                              checkOut: e.target.value,
-                            }))
-                          }
-                          className="w-full px-2 py-1.5 rounded text-xs border"
-                          style={{
-                            backgroundColor: '#171322',
-                            borderColor: '#59616A',
-                            color: '#F5F1E9',
-                          }}
-                        />
-                      </div>
+                  {dateType === 'exact' ? (
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="date"
+                        value={checkIn}
+                        onChange={(e) => setCheckIn(e.target.value)}
+                        className="px-2 py-1.5 rounded-lg bg-[#10131B] border border-[#59616A]/60 text-xs text-[#F5F1E9]"
+                      />
+                      <input
+                        type="date"
+                        value={checkOut}
+                        onChange={(e) => setCheckOut(e.target.value)}
+                        className="px-2 py-1.5 rounded-lg bg-[#10131B] border border-[#59616A]/60 text-xs text-[#F5F1E9]"
+                      />
                     </div>
                   ) : (
-                    <div className="space-y-2 mt-2">
-                      <select
-                        value={searchParams.flexibleWindow}
-                        onChange={(e) =>
-                          setSearchParams((prev) => ({
-                            ...prev,
-                            flexibleWindow: e.target.value,
-                          }))
-                        }
-                        className="w-full px-2.5 py-1.5 rounded text-xs border"
-                        style={{
-                          backgroundColor: '#171322',
-                          borderColor: '#59616A',
-                          color: '#F5F1E9',
-                        }}
-                      >
-                        <option value="5 noches en Diciembre (±3 días flexibles)">
-                          5 noches en Diciembre (±3 días)
-                        </option>
-                        <option value="7 noches en Enero / Vacaciones escolares">
-                          7 noches en Enero / Vacaciones
-                        </option>
-                        <option value="4 noches Fin de semana largo familiar">
-                          4 noches Fin de semana largo
-                        </option>
-                      </select>
-                      <div className="flex items-center justify-between text-xs">
-                        <span style={{ color: '#8E999B' }}>
-                          Noches a cotizar:
-                        </span>
-                        <input
-                          type="number"
-                          min="1"
-                          max="30"
-                          value={searchParams.FlexibleNightsCount}
-                          onChange={(e) =>
-                            setSearchParams((prev) => ({
-                              ...prev,
-                              FlexibleNightsCount: Math.max(
-                                1,
-                                Number(e.target.value)
-                              ),
-                            }))
-                          }
-                          className="w-16 px-2 py-1 rounded text-xs border text-center"
-                          style={{
-                            backgroundColor: '#171322',
-                            borderColor: '#59616A',
-                            color: '#F5F1E9',
-                          }}
-                        />
-                      </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min={1}
+                        max={30}
+                        value={flexibleNights}
+                        onChange={(e) => setFlexibleNights(Number(e.target.value))}
+                        className="w-20 px-2.5 py-1.5 rounded-lg bg-[#10131B] border border-[#59616A]/60 text-xs text-[#F5F1E9]"
+                      />
+                      <span className="text-xs text-[#C7CBC9]">noches flexibles</span>
                     </div>
                   )}
                 </div>
 
-                <div
-                  className="mt-3 pt-2 border-t text-xs flex items-center justify-between"
-                  style={{
-                    borderColor: 'rgba(89, 97, 106, 0.4)',
-                    color: '#59D7CC',
-                  }}
-                >
-                  <span>Duración calculada:</span>
-                  <span className="font-bold">
-                    {nightsCount} {nightsCount === 1 ? 'noche' : 'noches'}
-                  </span>
-                </div>
-              </div>
-
-              {/* Composición del Grupo Familiar y Edades de los Niños */}
-              <div
-                className="p-3.5 rounded-xl border flex flex-col justify-between"
-                style={{ backgroundColor: '#10131B', borderColor: '#59616A' }}
-              >
-                <div>
-                  <label
-                    className="block text-xs font-semibold uppercase tracking-wider mb-2"
-                    style={{ color: '#C7CBC9' }}
-                  >
-                    <Users
-                      className="w-3.5 h-3.5 inline mr-1"
-                      style={{ color: '#59D7CC' }}
-                    />
-                    Grupo Familiar y Unidades
+                {/* 3. Grupo familiar y unidades */}
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-medium text-[#C7CBC9] flex items-center gap-1">
+                    <Users className="w-3.5 h-3.5 text-[#59D7CC]" /> Huéspedes y Unidades
                   </label>
-                  <div className="grid grid-cols-3 gap-2 text-xs">
-                    <div>
-                      <span
-                        className="block text-[11px] mb-1"
-                        style={{ color: '#8E999B' }}
-                      >
-                        Adultos
-                      </span>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="bg-[#10131B] border border-[#59616A]/60 rounded-lg px-2 py-1">
+                      <span className="block text-[10px] text-[#8E999B]">Adultos</span>
                       <input
                         type="number"
-                        min="1"
-                        max="16"
-                        value={searchParams.adults}
-                        onChange={(e) =>
-                          setSearchParams((prev) => ({
-                            ...prev,
-                            adults: Math.max(1, Number(e.target.value)),
-                          }))
-                        }
-                        className="w-full px-2 py-1.5 rounded border text-center font-semibold"
-                        style={{
-                          backgroundColor: '#171322',
-                          borderColor: '#59616A',
-                          color: '#F5F1E9',
-                        }}
+                        min={1}
+                        max={20}
+                        value={adults}
+                        onChange={(e) => setAdults(Math.max(1, Number(e.target.value)))}
+                        className="w-full bg-transparent text-sm font-semibold text-[#F5F1E9] focus:outline-none"
                       />
                     </div>
-                    <div>
-                      <span
-                        className="block text-[11px] mb-1"
-                        style={{ color: '#8E999B' }}
-                      >
-                        Niños (0-17)
-                      </span>
+                    <div className="bg-[#10131B] border border-[#59616A]/60 rounded-lg px-2 py-1">
+                      <span className="block text-[10px] text-[#8E999B]">Niños</span>
                       <input
                         type="number"
-                        min="0"
-                        max="8"
-                        value={searchParams.childrenCount}
-                        onChange={(e) =>
-                          handleChildrenCountChange(e.target.value)
-                        }
-                        className="w-full px-2 py-1.5 rounded border text-center font-semibold"
-                        style={{
-                          backgroundColor: '#171322',
-                          borderColor: '#59616A',
-                          color: '#F5F1E9',
-                        }}
+                        min={0}
+                        max={10}
+                        value={childrenCount}
+                        onChange={(e) => handleChildrenCountChange(Number(e.target.value))}
+                        className="w-full bg-transparent text-sm font-semibold text-[#F5F1E9] focus:outline-none"
                       />
                     </div>
-                    <div>
-                      <span
-                        className="block text-[11px] mb-1"
-                        style={{ color: '#8E999B' }}
-                      >
-                        Hab./Unid.
-                      </span>
+                    <div className="bg-[#10131B] border border-[#59616A]/60 rounded-lg px-2 py-1">
+                      <span className="block text-[10px] text-[#8E999B]">Unidades</span>
                       <input
                         type="number"
-                        min="1"
-                        max="6"
-                        value={searchParams.rooms}
-                        onChange={(e) =>
-                          setSearchParams((prev) => ({
-                            ...prev,
-                            rooms: Math.max(1, Number(e.target.value)),
-                          }))
-                        }
-                        className="w-full px-2 py-1.5 rounded border text-center font-semibold"
-                        style={{
-                          backgroundColor: '#171322',
-                          borderColor: '#59616A',
-                          color: '#F5F1E9',
-                        }}
+                        min={1}
+                        max={10}
+                        value={units}
+                        onChange={(e) => setUnits(Math.max(1, Number(e.target.value)))}
+                        className="w-full bg-transparent text-sm font-semibold text-[#F5F1E9] focus:outline-none"
                       />
                     </div>
                   </div>
-
-                  {/* Selectores dinámicos de edades de los niños */}
-                  {searchParams.childrenCount > 0 && (
-                    <div
-                      className="mt-2.5 pt-2 border-t"
-                      style={{ borderColor: 'rgba(89, 97, 106, 0.4)' }}
-                    >
-                      <span
-                        className="block text-[11px] mb-1.5"
-                        style={{ color: '#C7CBC9' }}
-                      >
-                        Edad de cada niño al viajar (años):
-                      </span>
-                      <div className="grid grid-cols-4 gap-1.5">
-                        {searchParams.childrenAges.map((age, idx) => (
-                          <select
-                            key={idx}
-                            aria-label={`Edad del niño ${idx + 1}`}
-                            value={age}
-                            onChange={(e) =>
-                              handleChildAgeChange(idx, e.target.value)
-                            }
-                            className="px-1.5 py-1 rounded text-xs border"
-                            style={{
-                              backgroundColor: '#171322',
-                              borderColor: '#59616A',
-                              color: '#F5F1E9',
-                            }}
-                          >
-                            {Array.from({ length: 18 }, (_, i) => (
-                              <option key={i} value={i}>
-                                {i === 0 ? '<1 año' : `${i} a.`}
-                              </option>
-                            ))}
-                          </select>
-                        ))}
-                      </div>
+                  {childrenCount > 0 && (
+                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                      <span className="text-[11px] text-[#8E999B]">Edades:</span>
+                      {childrenAges.map((age, i) => (
+                        <input
+                          key={i}
+                          type="number"
+                          min={0}
+                          max={17}
+                          value={age}
+                          onChange={(e) => handleChildAgeChange(i, Number(e.target.value))}
+                          className="w-11 px-1.5 py-0.5 rounded bg-[#10131B] border border-[#59616A]/60 text-xs text-center text-[#F5F1E9]"
+                          title={`Edad niño ${i + 1}`}
+                        />
+                      ))}
                     </div>
                   )}
                 </div>
-              </div>
 
-              {/* Tipo de Hospedaje, Régimen y Presupuesto */}
-              <div
-                className="p-3.5 rounded-xl border flex flex-col justify-between space-y-2.5"
-                style={{ backgroundColor: '#10131B', borderColor: '#59616A' }}
-              >
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label
-                      className="block text-[11px] font-semibold uppercase mb-1"
-                      style={{ color: '#C7CBC9' }}
-                    >
-                      <Home
-                        className="w-3 h-3 inline mr-1"
-                        style={{ color: '#59D7CC' }}
-                      />
-                      Tipo
-                    </label>
-                    <select
-                      value={searchParams.accommodationType}
-                      onChange={(e) =>
-                        setSearchParams((prev) => ({
-                          ...prev,
-                          accommodationType: e.target.value,
-                        }))
-                      }
-                      className="w-full px-2 py-1.5 rounded text-xs border"
-                      style={{
-                        backgroundColor: '#171322',
-                        borderColor: '#59616A',
-                        color: '#F5F1E9',
-                      }}
-                    >
-                      <option value="all">Todos (Hotel/Resort/Villa)</option>
-                      <option value="Villa">Villa Familiar</option>
-                      <option value="Resort">Resort</option>
-                      <option value="Hotel">Hotel</option>
-                    </select>
+                {/* 4. Tipo, Régimen y Presupuesto */}
+                <div className="space-y-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[11px] text-[#C7CBC9] mb-0.5">Tipo</label>
+                      <select
+                        value={accommodationType}
+                        onChange={(e) => setAccommodationType(e.target.value)}
+                        className="w-full px-2 py-1.5 rounded-lg bg-[#10131B] border border-[#59616A]/60 text-xs text-[#F5F1E9]"
+                      >
+                        <option value="all">Todos</option>
+                        <option value="resort">Resort</option>
+                        <option value="hotel">Hotel</option>
+                        <option value="villa">Villa / Apart.</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[11px] text-[#C7CBC9] mb-0.5">Régimen</label>
+                      <select
+                        value={mealPlan}
+                        onChange={(e) => setMealPlan(e.target.value)}
+                        className="w-full px-2 py-1.5 rounded-lg bg-[#10131B] border border-[#59616A]/60 text-xs text-[#F5F1E9]"
+                      >
+                        <option value="any">Sin preferencia</option>
+                        <option value="all_inclusive">Todo incluido</option>
+                        <option value="breakfast">Desayuno incl.</option>
+                        <option value="room_only">Solo hospedaje</option>
+                      </select>
+                    </div>
                   </div>
 
-                  <div>
-                    <label
-                      className="block text-[11px] font-semibold uppercase mb-1"
-                      style={{ color: '#C7CBC9' }}
-                    >
-                      <Utensils
-                        className="w-3 h-3 inline mr-1"
-                        style={{ color: '#D99A73' }}
-                      />
-                      Régimen
-                    </label>
+                  <div className="flex items-center gap-1.5">
                     <select
-                      value={searchParams.mealPlan}
-                      onChange={(e) =>
-                        setSearchParams((prev) => ({
-                          ...prev,
-                          mealPlan: e.target.value,
-                        }))
-                      }
-                      className="w-full px-2 py-1.5 rounded text-xs border"
-                      style={{
-                        backgroundColor: '#171322',
-                        borderColor: '#59616A',
-                        color: '#F5F1E9',
-                      }}
+                      value={currency}
+                      onChange={(e) => setCurrency(e.target.value)}
+                      className="px-2 py-1.5 rounded-lg bg-[#10131B] border border-[#59616A]/60 text-xs text-[#F5F1E9]"
                     >
-                      <option value="any">Sin preferencia</option>
-                      <option value="Todo Incluido">Todo Incluido</option>
-                      <option value="Desayuno incluido">
-                        Desayuno incluido
-                      </option>
-                      <option value="Otro plan">
-                        Otro plan / Cocina propia
-                      </option>
+                      <option value="USD">USD</option>
+                      <option value="EUR">EUR</option>
+                      <option value="DOP">DOP</option>
+                      <option value="MXN">MXN</option>
+                      <option value="COP">COP</option>
                     </select>
-                  </div>
-                </div>
-
-                {/* Presupuesto y Moneda */}
-                <div
-                  className="pt-2 border-t"
-                  style={{ borderColor: 'rgba(89, 97, 106, 0.4)' }}
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <label
-                      className="text-[11px] font-semibold uppercase"
-                      style={{ color: '#C7CBC9' }}
-                    >
-                      <DollarSign
-                        className="w-3 h-3 inline"
-                        style={{ color: '#59D7CC' }}
-                      />
-                      Presupuesto Máx.
-                    </label>
-                    <select
-                      value={searchParams.budgetScope}
-                      onChange={(e) =>
-                        setSearchParams((prev) => ({
-                          ...prev,
-                          budgetScope: e.target.value,
-                        }))
-                      }
-                      className="text-[11px] px-1.5 py-0.5 rounded border"
-                      style={{
-                        backgroundColor: '#171322',
-                        borderColor: '#59616A',
-                        color: '#59D7CC',
-                      }}
-                    >
-                      <option value="total">Por toda la estadía</option>
-                      <option value="night">Por noche</option>
-                    </select>
-                  </div>
-                  <div className="flex gap-1.5">
                     <input
                       type="number"
-                      min="50"
-                      step="50"
-                      value={searchParams.maxBudget}
-                      onChange={(e) =>
-                        setSearchParams((prev) => ({
-                          ...prev,
-                          maxBudget: Number(e.target.value),
-                        }))
-                      }
-                      className="w-full px-2.5 py-1.5 rounded text-xs border font-semibold"
-                      style={{
-                        backgroundColor: '#171322',
-                        borderColor: '#59616A',
-                        color: '#F5F1E9',
-                      }}
+                      min={50}
+                      step={50}
+                      value={maxBudget}
+                      onChange={(e) => setMaxBudget(Number(e.target.value))}
+                      className="w-full px-2.5 py-1.5 rounded-lg bg-[#10131B] border border-[#59616A]/60 text-xs text-[#F5F1E9]"
+                      placeholder="Presupuesto máx."
                     />
                     <select
-                      value={searchParams.currency}
-                      onChange={(e) =>
-                        setSearchParams((prev) => ({
-                          ...prev,
-                          currency: e.target.value,
-                        }))
-                      }
-                      className="px-2 py-1.5 rounded text-xs border font-semibold"
-                      style={{
-                        backgroundColor: '#171322',
-                        borderColor: '#59616A',
-                        color: '#F5F1E9',
-                      }}
+                      value={budgetScope}
+                      onChange={(e) => setBudgetScope(e.target.value as 'total' | 'per_night')}
+                      className="px-2 py-1.5 rounded-lg bg-[#10131B] border border-[#59616A]/60 text-xs text-[#F5F1E9]"
                     >
-                      {Object.keys(CURRENCY_RATES).map((code) => (
-                        <option key={code} value={code}>
-                          {code}
-                        </option>
-                      ))}
+                      <option value="total">Total</option>
+                      <option value="per_night">/Noche</option>
                     </select>
                   </div>
                 </div>
               </div>
-            </div>
 
-            {/* Fila 2: Chips de Preferencias Familiares Opcionales + Botón de Búsqueda */}
-            <div
-              className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 pt-2 border-t"
-              style={{ borderColor: '#59616A' }}
-            >
-              <div className="space-y-1.5 w-full lg:w-auto">
-                <span
-                  className="block text-xs font-semibold uppercase tracking-wider"
-                  style={{ color: '#C7CBC9' }}
-                >
-                  Preferencias y Comodidades Familiares Opcionales:
-                </span>
-                <div className="flex flex-wrap gap-2">
-                  {FAMILY_PREFERENCES.map((pref) => {
-                    const active = searchParams.preferences.includes(pref.id);
+              {/* Preferencias familiares y botón de acción */}
+              <div className="mt-4 pt-3 border-t border-[#59616A]/30 flex flex-wrap items-center justify-between gap-4">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-xs text-[#8E999B] mr-1">Comodidades:</span>
+                  {PREFERENCE_OPTIONS.map((pref) => {
+                    const active = preferences.includes(pref.id);
                     return (
                       <button
                         key={pref.id}
                         type="button"
                         onClick={() => togglePreference(pref.id)}
-                        className="px-3 py-1.5 rounded-full text-xs font-medium border transition-all flex items-center gap-1.5"
-                        style={
+                        className={`px-2.5 py-1 rounded-full text-xs transition flex items-center gap-1 border ${
                           active
-                            ? {
-                                backgroundColor: 'rgba(89, 215, 204, 0.16)',
-                                borderColor: '#59D7CC',
-                                color: '#F5F1E9',
-                              }
-                            : {
-                                backgroundColor: '#10131B',
-                                borderColor: '#59616A',
-                                color: '#8E999B',
-                              }
-                        }
+                            ? 'bg-[#59D7CC]/15 text-[#59D7CC] border-[#59D7CC]'
+                            : 'bg-[#10131B] text-[#C7CBC9] border-[#59616A]/50 hover:border-[#8E999B]'
+                        }`}
                       >
-                        <span
-                          className="w-2 h-2 rounded-full"
-                          style={{
-                            backgroundColor: active ? '#59D7CC' : '#59616A',
-                          }}
-                        />
+                        {active && <Check className="w-3 h-3" />}
                         {pref.label}
                       </button>
                     );
                   })}
                 </div>
-              </div>
 
-              <button
-                type="submit"
-                className="w-full lg:w-auto px-6 py-3 rounded-xl font-bold text-sm shadow-lg transition-transform active:scale-95 flex items-center justify-center gap-2 shrink-0"
-                style={{
-                  backgroundColor: '#59D7CC',
-                  color: '#10131B',
-                }}
-              >
-                <RefreshCw
-                  className={`w-4 h-4 ${
-                    isSearchingFeedback ? 'animate-spin' : ''
-                  }`}
-                />
-                Actualizar Búsqueda y Comparar
-              </button>
-            </div>
-          </form>
-        </section>
-
-        {/* ===================================================================
-            VISTA SEGÚN PESTAÑA ACTIVA Y MODO (REAL VS DEMO)
-           =================================================================== */}
-        {activeTab === 'search' && (
-          <>
-            {dataMode === 'real' && !realConnectionState.connected ? (
-              /* PANEL DE ESTADO DE INTEGRACIÓN EN MODO REAL (NO INVENTA RESULTADOS) */
-              <section
-                className="rounded-2xl border p-6 sm:p-8 space-y-6"
-                style={{
-                  backgroundColor: '#171322',
-                  borderColor: '#59D7CC',
-                }}
-              >
-                <div
-                  className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b pb-5"
-                  style={{ borderColor: '#59616A' }}
+                <button
+                  type="button"
+                  onClick={executeRealSearch}
+                  disabled={isSearching}
+                  className="px-5 py-2.5 rounded-xl bg-[#59D7CC] hover:bg-[#41D6CA] disabled:opacity-50 text-[#10131B] font-semibold text-sm shadow-lg transition flex items-center gap-2 cursor-pointer"
                 >
-                  <div className="space-y-1">
-                    <span
-                      className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded"
-                      style={{
-                        backgroundColor: 'rgba(89, 215, 204, 0.15)',
-                        color: '#59D7CC',
-                      }}
-                    >
-                      <Lock className="w-3.5 h-3.5" />
-                      Modo Búsqueda Real · Protección de Credenciales Activa
-                    </span>
-                    <h3
-                      className="text-xl font-bold mt-2"
-                      style={{ color: '#F5F1E9' }}
-                    >
-                      Conectores de Tarifas en Vivo Pendientes de Credenciales
-                      en Servidor
-                    </h3>
-                    <p
-                      className="text-sm max-w-3xl"
-                      style={{ color: '#C7CBC9' }}
-                    >
-                      Siguiendo las reglas de transparencia del proyecto,{' '}
-                      <strong>
-                        no simulamos una búsqueda en vivo ni mostramos precios
-                        ficticios como si fueran actuales
-                      </strong>{' '}
-                      cuando faltan las claves de API de los proveedores.
-                    </p>
-                  </div>
+                  {isSearching ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Buscando alojamientos reales...
+                    </>
+                  ) : (
+                    <>
+                      <Search className="w-4 h-4" />
+                      Buscar Hospedajes Reales en Vivo
+                    </>
+                  )}
+                </button>
+              </div>
+            </section>
 
-                  <button
-                    type="button"
-                    onClick={() => setDataMode('demo')}
-                    className="px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all shrink-0 flex items-center gap-2"
-                    style={{
-                      backgroundColor: '#D99A73',
-                      color: '#10131B',
-                    }}
-                  >
-                    <Sparkles className="w-4 h-4" />
-                    Explorar con Datos de Muestra (Activar Modo DEMO)
-                  </button>
-                </div>
-
-                {/* Estado de conectores */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {INITIAL_CONNECTORS.map((conn) => (
-                    <div
-                      key={conn.id}
-                      className="p-4 rounded-xl border space-y-2"
-                      style={{
-                        backgroundColor: '#10131B',
-                        borderColor: '#59616A',
+            {/* ESTADO INICIAL O CARGANDO */}
+            {!hasSearchedOnce && dataMode === 'live' && (
+              <div className="rounded-2xl bg-[#171322] border border-[#59D7CC]/40 p-6 text-center space-y-3">
+                <Compass className="w-10 h-10 text-[#59D7CC] mx-auto" />
+                <h3 className="text-base font-semibold text-[#F5F1E9]">
+                  Listo para buscar hospedajes reales en cualquier destino del mundo
+                </h3>
+                <p className="text-xs text-[#C7CBC9] max-w-xl mx-auto">
+                  Haz clic en <strong>"Buscar Hospedajes Reales en Vivo"</strong> para consultar alojamientos reales en <strong>{destination}</strong> usando OpenStreetMap y generar enlaces directos a sus tarifas actuales en Booking.com, Google Hotels, Expedia y Airbnb.
+                </p>
+                <div className="flex flex-wrap justify-center gap-2 pt-2">
+                  {['Punta Cana', 'Cancún', 'Orlando', 'Madrid', 'Cartagena', 'Bariloche'].map((city) => (
+                    <button
+                      key={city}
+                      type="button"
+                      onClick={() => {
+                        setDestination(city);
                       }}
+                      className="px-3 py-1.5 rounded-lg bg-[#10131B] border border-[#59616A]/50 hover:border-[#59D7CC] text-xs text-[#C7CBC9] hover:text-[#F5F1E9]"
                     >
-                      <div className="flex items-center justify-between gap-2">
-                        <span
-                          className="font-bold text-sm"
-                          style={{ color: '#F5F1E9' }}
-                        >
-                          {conn.name}
-                        </span>
-                        <span
-                          className="text-[11px] px-2 py-0.5 rounded font-medium"
-                          style={{
-                            backgroundColor: 'rgba(217, 154, 115, 0.16)',
-                            color: '#D99A73',
-                            border: '1px solid rgba(217, 154, 115, 0.4)',
-                          }}
-                        >
-                          Sin clave configurada
-                        </span>
-                      </div>
-                      <p className="text-xs" style={{ color: '#A47BFF' }}>
-                        {conn.category}
-                      </p>
-                      <p className="text-xs" style={{ color: '#C7CBC9' }}>
-                        {conn.notes}
-                      </p>
-                      <div
-                        className="text-[11px] font-mono px-2.5 py-1.5 rounded border"
-                        style={{
-                          backgroundColor: '#171322',
-                          borderColor: '#59616A',
-                          color: '#8E999B',
-                        }}
-                      >
-                        Requiere: {conn.envRequired}
-                      </div>
-                    </div>
+                      Probar con {city}
+                    </button>
                   ))}
                 </div>
-
-                {/* Configurador de Proxy Backend propio */}
-                <form
-                  onSubmit={handleTestProxyConnection}
-                  className="p-4 rounded-xl border space-y-3"
-                  style={{ backgroundColor: '#10131B', borderColor: '#59616A' }}
-                >
-                  <div
-                    className="text-sm font-semibold"
-                    style={{ color: '#F5F1E9' }}
-                  >
-                    Conectar Endpoint de Backend / Proxy Autorizado del Proyecto
-                  </div>
-                  <p className="text-xs" style={{ color: '#8E999B' }}>
-                    Las claves de API nunca deben incluirse en el código
-                    JavaScript del navegador. Si ya desplegaste el microservicio
-                    proxy del proyecto, introduce su URL:
-                  </p>
-                  <div className="flex flex-col sm:flex-row gap-2">
-                    <input
-                      type="url"
-                      value={proxyEndpoint}
-                      onChange={(e) => setProxyEndpoint(e.target.value)}
-                      placeholder="https://api.tu-dominio-familiar.com/v1/rates-proxy"
-                      className="flex-1 px-3 py-2 rounded-lg text-xs border"
-                      style={{
-                        backgroundColor: '#171322',
-                        borderColor: '#59616A',
-                        color: '#F5F1E9',
-                      }}
-                    />
-                    <button
-                      type="submit"
-                      className="px-4 py-2 rounded-lg text-xs font-bold"
-                      style={{ backgroundColor: '#59D7CC', color: '#10131B' }}
-                    >
-                      {realConnectionState.testing
-                        ? 'Verificando...'
-                        : 'Verificar Conectores'}
-                    </button>
-                  </div>
-                  {realConnectionState.tested && (
-                    <div
-                      className="p-3 rounded-lg text-xs flex items-start gap-2"
-                      style={{
-                        backgroundColor: 'rgba(217, 154, 115, 0.14)',
-                        color: '#D99A73',
-                        border: '1px solid #D99A73',
-                      }}
-                    >
-                      <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-                      <span>{realConnectionState.message}</span>
-                    </div>
-                  )}
-                </form>
-              </section>
-            ) : (
-              /* ===============================================================
-                 LISTA COMPARABLE Y DEDUPLICADA DE HOSPEDAJES
-                 =============================================================== */
-              <section className="space-y-4">
-                {/* Barra de control de resultados, ordenamiento y comparador lado a lado */}
-                <div
-                  className="rounded-xl border p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4"
-                  style={{ backgroundColor: '#171322', borderColor: '#59616A' }}
-                >
-                  <div className="space-y-0.5">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3
-                        className="text-base font-bold"
-                        style={{ color: '#F5F1E9' }}
-                      >
-                        {evaluatedProperties.length}{' '}
-                        {evaluatedProperties.length === 1
-                          ? 'Alojamiento Familiar Encontrado'
-                          : 'Alojamientos Familiares Comparados'}
-                      </h3>
-                      {dataMode === 'demo' && (
-                        <span
-                          className="text-[11px] px-2 py-0.5 rounded font-semibold uppercase"
-                          style={{
-                            backgroundColor: 'rgba(217, 154, 115, 0.2)',
-                            color: '#D99A73',
-                          }}
-                        >
-                          DEMO · Datos de ejemplo
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-xs" style={{ color: '#8E999B' }}>
-                      Alojamientos deduplicados: cada propiedad agrupa sus
-                      distintas fuentes y aclara diferencias en cancelación o
-                      comidas.
-                    </p>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-3 w-full md:w-auto justify-between md:justify-end">
-                    {/* Botón para abrir comparador lado a lado */}
-                    <button
-                      type="button"
-                      onClick={() => setIsCompareModalOpen(true)}
-                      disabled={selectedForCompare.length < 2}
-                      className="px-3.5 py-2 rounded-lg text-xs font-semibold border transition-all flex items-center gap-1.5 disabled:opacity-40"
-                      style={{
-                        backgroundColor: 'rgba(164, 123, 255, 0.15)',
-                        borderColor: '#A47BFF',
-                        color: '#F5F1E9',
-                      }}
-                    >
-                      <Columns
-                        className="w-4 h-4"
-                        style={{ color: '#A47BFF' }}
-                      />
-                      Comparar lado a lado ({selectedForCompare.length}/4)
-                    </button>
-
-                    {/* Selector de ordenamiento */}
-                    <div className="flex items-center gap-2">
-                      <ArrowUpDown
-                        className="w-4 h-4"
-                        style={{ color: '#59D7CC' }}
-                      />
-                      <label
-                        htmlFor="sort-select"
-                        className="text-xs"
-                        style={{ color: '#C7CBC9' }}
-                      >
-                        Ordenar por:
-                      </label>
-                      <select
-                        id="sort-select"
-                        value={sortBy}
-                        onChange={(e) => setSortBy(e.target.value)}
-                        className="px-3 py-1.5 rounded-lg text-xs font-semibold border"
-                        style={{
-                          backgroundColor: '#10131B',
-                          borderColor: '#59616A',
-                          color: '#F5F1E9',
-                        }}
-                      >
-                        <option value="match">
-                          Mejor coincidencia familiar (%)
-                        </option>
-                        <option value="total_asc">
-                          Menor precio total de estadía
-                        </option>
-                        <option value="person_asc">
-                          Menor precio por persona
-                        </option>
-                        <option value="capacity_desc">
-                          Mayor capacidad de huéspedes
-                        </option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Aviso permanente de confirmación de precios y fuentes */}
-                <div
-                  className="rounded-xl border px-4 py-3 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2"
-                  style={{
-                    backgroundColor: 'rgba(16, 19, 27, 0.9)',
-                    borderColor: '#59616A',
-                    color: '#C7CBC9',
-                  }}
-                >
-                  <div className="flex items-center gap-2">
-                    <Info
-                      className="w-4 h-4 shrink-0"
-                      style={{ color: '#59D7CC' }}
-                    />
-                    <span>
-                      <strong>Transparencia de precios:</strong> Ningún precio
-                      mostrado es definitivo hasta confirmarse en la pasarela
-                      del proveedor. Verifica siempre impuestos locales y
-                      políticas por edad de niños.
-                    </span>
-                  </div>
-                  <span
-                    className="text-[11px] shrink-0"
-                    style={{ color: '#8E999B' }}
-                  >
-                    Moneda activa: {searchParams.currency}
-                  </span>
-                </div>
-
-                {/* Estado sin resultados */}
-                {evaluatedProperties.length === 0 ? (
-                  <div
-                    className="rounded-2xl border p-8 text-center space-y-3"
-                    style={{
-                      backgroundColor: '#171322',
-                      borderColor: '#59616A',
-                    }}
-                  >
-                    <Building2
-                      className="w-10 h-10 mx-auto"
-                      style={{ color: '#D99A73' }}
-                    />
-                    <h4
-                      className="text-base font-bold"
-                      style={{ color: '#F5F1E9' }}
-                    >
-                      No encontramos alojamientos con esa combinación exacta de
-                      destino o tipo
-                    </h4>
-                    <p
-                      className="text-xs max-w-md mx-auto"
-                      style={{ color: '#C7CBC9' }}
-                    >
-                      Prueba seleccionando el destino "Todos", activando la
-                      casilla "Incluir destinos cercanos (+30 km)" o cambiando
-                      el tipo de hospedaje a "Todos".
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setSearchParams((prev) => ({
-                          ...prev,
-                          destination: 'Todos',
-                          includeNearby: true,
-                          accommodationType: 'all',
-                        }))
-                      }
-                      className="px-4 py-2 rounded-lg text-xs font-bold"
-                      style={{ backgroundColor: '#59D7CC', color: '#10131B' }}
-                    >
-                      Restablecer filtros de destino y tipo
-                    </button>
-                  </div>
-                ) : (
-                  /* Tarjetas de Alojamiento */
-                  <div className="space-y-5">
-                    {evaluatedProperties.map((prop) => {
-                      const isSaved = selectedForSummary.includes(prop.id);
-                      const isCompared = selectedForCompare.includes(prop.id);
-
-                      return (
-                        <article
-                          key={prop.id}
-                          className="rounded-2xl border p-5 transition-all space-y-5"
-                          style={{
-                            backgroundColor: '#171322',
-                            borderColor: isSaved ? '#59D7CC' : '#59616A',
-                          }}
-                        >
-                          {/* Encabezado de la Propiedad y Desglose Principal de Precios */}
-                          <div
-                            className="flex flex-col lg:flex-row justify-between gap-5 border-b pb-4"
-                            style={{ borderColor: '#59616A' }}
-                          >
-                            {/* Información de Identidad, Capacidad y Coincidencia */}
-                            <div className="space-y-2.5 flex-1">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <span
-                                  className="px-2.5 py-0.5 rounded-md text-xs font-bold uppercase"
-                                  style={{
-                                    backgroundColor:
-                                      'rgba(164, 123, 255, 0.18)',
-                                    color: '#A47BFF',
-                                    border:
-                                      '1px solid rgba(164, 123, 255, 0.4)',
-                                  }}
-                                >
-                                  {prop.type}
-                                </span>
-                                <span
-                                  className="px-2.5 py-0.5 rounded-md text-xs font-medium"
-                                  style={{
-                                    backgroundColor: '#10131B',
-                                    color: '#C7CBC9',
-                                    border: '1px solid #59616A',
-                                  }}
-                                >
-                                  <MapPin
-                                    className="w-3 h-3 inline mr-1"
-                                    style={{ color: '#59D7CC' }}
-                                  />
-                                  {prop.destination}
-                                </span>
-                                {prop.isNearbyRegion && (
-                                  <span
-                                    className="px-2 py-0.5 rounded text-[11px]"
-                                    style={{
-                                      backgroundColor:
-                                        'rgba(89, 215, 204, 0.12)',
-                                      color: '#59D7CC',
-                                    }}
-                                  >
-                                    Destino cercano (+30 km)
-                                  </span>
-                                )}
-                                {dataMode === 'demo' && (
-                                  <span
-                                    className="px-2 py-0.5 rounded text-[10px] font-bold uppercase"
-                                    style={{
-                                      backgroundColor:
-                                        'rgba(217, 154, 115, 0.16)',
-                                      color: '#D99A73',
-                                    }}
-                                  >
-                                    Dato DEMO
-                                  </span>
-                                )}
-                              </div>
-
-                              <h4
-                                className="text-lg sm:text-xl font-bold"
-                                style={{ color: '#F5F1E9' }}
-                              >
-                                {prop.name}
-                              </h4>
-
-                              <p
-                                className="text-xs"
-                                style={{ color: '#8E999B' }}
-                              >
-                                {prop.distanceFromCenter} •{' '}
-                                <strong>Distribución:</strong>{' '}
-                                {prop.unitDistribution}
-                              </p>
-
-                              {/* Indicadores de Capacidad y Comodidades */}
-                              <div className="flex flex-wrap items-center gap-3 pt-1 text-xs">
-                                <span
-                                  className="px-2.5 py-1 rounded-lg border flex items-center gap-1.5"
-                                  style={{
-                                    backgroundColor: '#10131B',
-                                    borderColor: prop.meetsCapacity
-                                      ? '#59D7CC'
-                                      : '#D99A73',
-                                    color: prop.meetsCapacity
-                                      ? '#59D7CC'
-                                      : '#D99A73',
-                                  }}
-                                >
-                                  <Users className="w-3.5 h-3.5" />
-                                  Capacidad máx: {prop.maxCapacity} personas
-                                  {prop.meetsCapacity
-                                    ? ' (Apto para tu grupo)'
-                                    : ' (Capacidad menor al grupo)'}
-                                </span>
-
-                                <span
-                                  className="px-2.5 py-1 rounded-lg border flex items-center gap-1.5"
-                                  style={{
-                                    backgroundColor: '#10131B',
-                                    borderColor: '#59616A',
-                                    color: '#C7CBC9',
-                                  }}
-                                >
-                                  <BedDouble
-                                    className="w-3.5 h-3.5"
-                                    style={{ color: '#A47BFF' }}
-                                  />
-                                  {prop.sources.length}{' '}
-                                  {prop.sources.length === 1
-                                    ? 'fuente consultada'
-                                    : 'fuentes consolidadas (sin duplicar)'}
-                                </span>
-                              </div>
-
-                              {/* Barra y desglose de coincidencia con filtros familiares */}
-                              <div
-                                className="p-3 rounded-xl border mt-2 space-y-2"
-                                style={{
-                                  backgroundColor: '#10131B',
-                                  borderColor: '#59616A',
-                                }}
-                              >
-                                <div className="flex items-center justify-between text-xs">
-                                  <span
-                                    className="font-semibold"
-                                    style={{ color: '#F5F1E9' }}
-                                  >
-                                    Coincidencia con tus filtros familiares:
-                                  </span>
-                                  <span
-                                    className="font-bold px-2 py-0.5 rounded"
-                                    style={{
-                                      backgroundColor:
-                                        prop.matchPercentage >= 80
-                                          ? 'rgba(89, 215, 204, 0.2)'
-                                          : 'rgba(217, 154, 115, 0.2)',
-                                      color:
-                                        prop.matchPercentage >= 80
-                                          ? '#59D7CC'
-                                          : '#D99A73',
-                                    }}
-                                  >
-                                    {prop.matchPercentage}% de coincidencia
-                                  </span>
-                                </div>
-                                <div
-                                  className="w-full h-2 rounded-full overflow-hidden"
-                                  style={{ backgroundColor: '#171322' }}
-                                >
-                                  <div
-                                    className="h-full rounded-full transition-all"
-                                    style={{
-                                      width: `${prop.matchPercentage}%`,
-                                      backgroundColor:
-                                        prop.matchPercentage >= 80
-                                          ? '#59D7CC'
-                                          : '#D99A73',
-                                    }}
-                                  />
-                                </div>
-                                <div className="flex flex-wrap gap-1.5 pt-1">
-                                  {prop.criteria.map((c, idx) => (
-                                    <span
-                                      key={idx}
-                                      className="text-[11px] px-2 py-0.5 rounded flex items-center gap-1"
-                                      style={
-                                        c.passed
-                                          ? {
-                                              backgroundColor:
-                                                'rgba(89, 215, 204, 0.1)',
-                                              color: '#59D7CC',
-                                            }
-                                          : {
-                                              backgroundColor:
-                                                'rgba(217, 154, 115, 0.12)',
-                                              color: '#D99A73',
-                                            }
-                                      }
-                                    >
-                                      {c.passed ? (
-                                        <Check className="w-3 h-3 shrink-0" />
-                                      ) : (
-                                        <X className="w-3 h-3 shrink-0" />
-                                      )}
-                                      {c.label}
-                                    </span>
-                                  ))}
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Panel de Precios Altamente Legible */}
-                            <div
-                              className="lg:w-80 p-4 rounded-xl border flex flex-col justify-between shrink-0"
-                              style={{
-                                backgroundColor: '#10131B',
-                                borderColor: '#59616A',
-                              }}
-                            >
-                              <div className="space-y-1.5">
-                                <div
-                                  className="flex items-center justify-between text-xs"
-                                  style={{ color: '#8E999B' }}
-                                >
-                                  <span>Mejor tarifa según filtro</span>
-                                  <span style={{ color: '#A47BFF' }}>
-                                    {prop.primarySource.providerType}
-                                  </span>
-                                </div>
-
-                                {/* Precio Total de la Estadía */}
-                                <div className="pt-1">
-                                  <div
-                                    className="text-xs"
-                                    style={{ color: '#C7CBC9' }}
-                                  >
-                                    Total estimado por {nightsCount}{' '}
-                                    {nightsCount === 1 ? 'noche' : 'noches'}:
-                                  </div>
-                                  <div
-                                    className="text-2xl sm:text-3xl font-extrabold tracking-tight"
-                                    style={{ color: '#F5F1E9' }}
-                                  >
-                                    {formatMoney(prop.totalStayUSD)}
-                                    <span
-                                      className="text-xs font-normal ml-1.5"
-                                      style={{ color: '#8E999B' }}
-                                    >
-                                      {searchParams.currency}
-                                    </span>
-                                  </div>
-                                </div>
-
-                                {/* Precio por noche y Precio por persona */}
-                                <div
-                                  className="grid grid-cols-2 gap-2 pt-2 border-t text-xs"
-                                  style={{
-                                    borderColor: 'rgba(89, 97, 106, 0.4)',
-                                  }}
-                                >
-                                  <div>
-                                    <span
-                                      className="block text-[11px]"
-                                      style={{ color: '#8E999B' }}
-                                    >
-                                      Precio por noche:
-                                    </span>
-                                    <span
-                                      className="font-bold"
-                                      style={{ color: '#59D7CC' }}
-                                    >
-                                      {formatMoney(prop.effectiveNightlyUSD)} /
-                                      noche
-                                    </span>
-                                  </div>
-                                  <div>
-                                    <span
-                                      className="block text-[11px]"
-                                      style={{ color: '#8E999B' }}
-                                    >
-                                      Por persona ({totalGuests}):
-                                    </span>
-                                    <span
-                                      className="font-bold"
-                                      style={{ color: '#F5F1E9' }}
-                                    >
-                                      {formatMoney(prop.perPersonUSD)} / pers.
-                                    </span>
-                                  </div>
-                                </div>
-
-                                {/* Estado de Impuestos y Cargos Obligatorios */}
-                                <div
-                                  className="mt-2 p-2.5 rounded-lg border text-[11px]"
-                                  style={
-                                    prop.taxesStatus === 'unconfirmed'
-                                      ? {
-                                          backgroundColor:
-                                            'rgba(217, 154, 115, 0.14)',
-                                          borderColor: '#D99A73',
-                                          color: '#D99A73',
-                                        }
-                                      : {
-                                          backgroundColor: '#171322',
-                                          borderColor: '#59616A',
-                                          color: '#C7CBC9',
-                                        }
-                                  }
-                                >
-                                  <div className="font-semibold mb-0.5">
-                                    {prop.taxesStatus === 'breakdown' &&
-                                      `Incluye +${formatMoney(
-                                        prop.nightlyTaxesUSD * nightsCount
-                                      )} de impuestos y cargos en el cálculo`}
-                                    {prop.taxesStatus === 'included' &&
-                                      'Impuestos obligatorios incluidos en tarifa base'}
-                                    {prop.taxesStatus === 'unconfirmed' &&
-                                      'Cargos locales no incluidos / A confirmar en proveedor'}
-                                  </div>
-                                  <p className="opacity-90">{prop.taxesNote}</p>
-                                </div>
-                              </div>
-
-                              {/* Botones para Guardar en Resumen y Comparar */}
-                              <div
-                                className="pt-3 mt-3 border-t flex flex-col gap-2"
-                                style={{ borderColor: '#59616A' }}
-                              >
-                                <button
-                                  type="button"
-                                  onClick={() => toggleSelectSummary(prop.id)}
-                                  className="w-full py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5"
-                                  style={
-                                    isSaved
-                                      ? {
-                                          backgroundColor: '#59D7CC',
-                                          color: '#10131B',
-                                        }
-                                      : {
-                                          backgroundColor: '#171322',
-                                          color: '#59D7CC',
-                                          border: '1px solid #59D7CC',
-                                        }
-                                  }
-                                >
-                                  {isSaved ? (
-                                    <>
-                                      <CheckCircle2 className="w-4 h-4" />
-                                      Seleccionado en Resumen Familiar
-                                    </>
-                                  ) : (
-                                    <>
-                                      <FileText className="w-4 h-4" />
-                                      Guardar para Resumen / Correo
-                                    </>
-                                  )}
-                                </button>
-
-                                <button
-                                  type="button"
-                                  onClick={() => toggleSelectCompare(prop.id)}
-                                  className="w-full py-1.5 px-3 rounded-lg text-xs font-medium border transition-all flex items-center justify-center gap-1.5"
-                                  style={
-                                    isCompared
-                                      ? {
-                                          backgroundColor:
-                                            'rgba(164, 123, 255, 0.2)',
-                                          borderColor: '#A47BFF',
-                                          color: '#F5F1E9',
-                                        }
-                                      : {
-                                          backgroundColor: 'transparent',
-                                          borderColor: '#59616A',
-                                          color: '#C7CBC9',
-                                        }
-                                  }
-                                >
-                                  <Columns className="w-3.5 h-3.5" />
-                                  {isCompared
-                                    ? 'En tabla comparativa'
-                                    : 'Añadir al comparador lado a lado'}
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* TABLA DE FUENTES CONSOLIDADAS (Evita duplicar el alojamiento y aclara condiciones distintas) */}
-                          <div className="space-y-2.5">
-                            <div className="flex items-center justify-between">
-                              <h5
-                                className="text-xs font-bold uppercase tracking-wider"
-                                style={{ color: '#C7CBC9' }}
-                              >
-                                Comparativa de Fuentes y Condiciones para este
-                                Alojamiento (Sin Duplicados)
-                              </h5>
-                              <span
-                                className="text-[11px]"
-                                style={{ color: '#8E999B' }}
-                              >
-                                Precio sujeto a confirmación final en el sitio
-                                del proveedor
-                              </span>
-                            </div>
-
-                            <div
-                              className="overflow-x-auto rounded-xl border"
-                              style={{ borderColor: '#59616A' }}
-                            >
-                              <table className="w-full text-left border-collapse text-xs">
-                                <thead>
-                                  <tr
-                                    className="border-b text-[11px] uppercase"
-                                    style={{
-                                      backgroundColor: '#10131B',
-                                      borderColor: '#59616A',
-                                      color: '#8E999B',
-                                    }}
-                                  >
-                                    <th className="py-2.5 px-3">
-                                      Fuente y Consulta
-                                    </th>
-                                    <th className="py-2.5 px-3">
-                                      Régimen de Comidas
-                                    </th>
-                                    <th className="py-2.5 px-3">
-                                      Cancelación y Diferencias
-                                    </th>
-                                    <th className="py-2.5 px-3">
-                                      Disponibilidad
-                                    </th>
-                                    <th className="py-2.5 px-3 text-right">
-                                      Tarifa Base / Total
-                                    </th>
-                                    <th className="py-2.5 px-3 text-right">
-                                      Enlace
-                                    </th>
-                                  </tr>
-                                </thead>
-                                <tbody
-                                  className="divide-y"
-                                  style={{ borderColor: '#59616A' }}
-                                >
-                                  {prop.sources.map((src) => {
-                                    const srcNightlyTotal =
-                                      src.nightlyRateUSD +
-                                      (prop.taxesStatus === 'breakdown'
-                                        ? prop.taxesAmountUSD
-                                        : 0);
-                                    const srcStayTotal =
-                                      srcNightlyTotal * nightsCount;
-                                    const isPrimary =
-                                      src.sourceId ===
-                                      prop.primarySource.sourceId;
-
-                                    return (
-                                      <tr
-                                        key={src.sourceId}
-                                        style={{
-                                          backgroundColor: isPrimary
-                                            ? 'rgba(89, 215, 204, 0.06)'
-                                            : '#10131B',
-                                        }}
-                                      >
-                                        <td className="py-3 px-3 align-top">
-                                          <div
-                                            className="font-bold"
-                                            style={{ color: '#F5F1E9' }}
-                                          >
-                                            {src.providerName}
-                                          </div>
-                                          <div
-                                            className="flex items-center gap-1 text-[11px] mt-0.5"
-                                            style={{ color: '#8E999B' }}
-                                          >
-                                            <Clock className="w-3 h-3" />
-                                            {src.lastChecked}
-                                          </div>
-                                        </td>
-                                        <td className="py-3 px-3 align-top">
-                                          <span
-                                            className="px-2 py-0.5 rounded font-medium inline-block"
-                                            style={{
-                                              backgroundColor: '#171322',
-                                              color: '#59D7CC',
-                                              border:
-                                                '1px solid rgba(89, 215, 204, 0.35)',
-                                            }}
-                                          >
-                                            {src.mealPlan}
-                                          </span>
-                                        </td>
-                                        <td className="py-3 px-3 align-top max-w-xs">
-                                          <div
-                                            className="font-semibold"
-                                            style={{ color: '#F5F1E9' }}
-                                          >
-                                            {src.cancellation}
-                                          </div>
-                                          <div
-                                            className="text-[11px] mt-0.5"
-                                            style={{ color: '#C7CBC9' }}
-                                          >
-                                            {src.conditionNote}
-                                          </div>
-                                        </td>
-                                        <td className="py-3 px-3 align-top">
-                                          <span style={{ color: '#C7CBC9' }}>
-                                            {src.availability}
-                                          </span>
-                                        </td>
-                                        <td className="py-3 px-3 align-top text-right whitespace-nowrap">
-                                          <div
-                                            className="font-bold text-sm"
-                                            style={{ color: '#F5F1E9' }}
-                                          >
-                                            {formatMoney(srcStayTotal)}
-                                          </div>
-                                          <div
-                                            className="text-[11px]"
-                                            style={{ color: '#8E999B' }}
-                                          >
-                                            ({formatMoney(src.nightlyRateUSD)}{' '}
-                                            base/noche)
-                                          </div>
-                                        </td>
-                                        <td className="py-3 px-3 align-top text-right whitespace-nowrap">
-                                          <a
-                                            href={src.url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            onClick={(e) => {
-                                              if (dataMode === 'demo') {
-                                                e.preventDefault();
-                                              }
-                                            }}
-                                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-colors"
-                                            style={{
-                                              borderColor: '#59D7CC',
-                                              color: '#59D7CC',
-                                              backgroundColor:
-                                                'rgba(89, 215, 204, 0.1)',
-                                            }}
-                                            title={
-                                              dataMode === 'demo'
-                                                ? 'Enlace de ejemplo en Modo DEMO'
-                                                : 'Ir a la fuente para confirmar tarifa'
-                                            }
-                                          >
-                                            <span>
-                                              {dataMode === 'demo'
-                                                ? 'Fuente (DEMO)'
-                                                : 'Ver en proveedor'}
-                                            </span>
-                                            <ExternalLink className="w-3 h-3" />
-                                          </a>
-                                        </td>
-                                      </tr>
-                                    );
-                                  })}
-                                </tbody>
-                              </table>
-                            </div>
-                          </div>
-
-                          {/* Ofertas y Códigos Asociados al Alojamiento */}
-                          {prop.linkedOffers.length > 0 && (
-                            <div
-                              className="p-3.5 rounded-xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
-                              style={{
-                                backgroundColor: 'rgba(217, 154, 115, 0.1)',
-                                borderColor: '#D99A73',
-                              }}
-                            >
-                              <div className="space-y-1">
-                                <div
-                                  className="text-xs font-bold flex items-center gap-1.5"
-                                  style={{ color: '#D99A73' }}
-                                >
-                                  <Tag className="w-4 h-4" />
-                                  Promociones y Códigos publicados para este
-                                  hospedaje:
-                                </div>
-                                <div className="flex flex-wrap gap-2">
-                                  {prop.linkedOffers.map((off) => (
-                                    <span
-                                      key={off.id}
-                                      className="text-xs px-2.5 py-1 rounded border flex items-center gap-1.5"
-                                      style={{
-                                        backgroundColor: '#10131B',
-                                        borderColor: '#D99A73',
-                                        color: '#F5F1E9',
-                                      }}
-                                    >
-                                      <strong style={{ color: '#D99A73' }}>
-                                        {off.code}
-                                      </strong>
-                                      : {off.discountSummary}
-                                      <span
-                                        className="text-[10px] px-1.5 py-0.5 rounded"
-                                        style={{
-                                          backgroundColor:
-                                            off.verificationStatus ===
-                                            'verified_source'
-                                              ? 'rgba(89, 215, 204, 0.2)'
-                                              : 'rgba(217, 154, 115, 0.25)',
-                                          color:
-                                            off.verificationStatus ===
-                                            'verified_source'
-                                              ? '#59D7CC'
-                                              : '#D99A73',
-                                        }}
-                                      >
-                                        {off.statusLabel}
-                                      </span>
-                                    </span>
-                                  ))}
-                                </div>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => setActiveTab('offers')}
-                                className="text-xs font-semibold underline shrink-0"
-                                style={{ color: '#D99A73' }}
-                              >
-                                Ver condiciones y vigencia →
-                              </button>
-                            </div>
-                          )}
-                        </article>
-                      );
-                    })}
-                  </div>
-                )}
-              </section>
+              </div>
             )}
+
+            {searchError && (
+              <div className="rounded-xl bg-[#171322] border border-[#D99A73] p-4 flex items-center gap-3 text-xs text-[#F5F1E9]">
+                <AlertTriangle className="w-5 h-5 text-[#D99A73] shrink-0" />
+                <span>{searchError}</span>
+              </div>
+            )}
+
+            {/* BARRA DE ORDENAMIENTO Y ESTADO DE RESULTADOS */}
+            {(hasSearchedOnce || dataMode === 'demo') && !isSearching && (
+              <div className="flex flex-wrap items-center justify-between gap-3 bg-[#171322]/70 px-4 py-3 rounded-xl border border-[#59616A]/40">
+                <div className="text-xs text-[#C7CBC9]">
+                  Mostrando <strong className="text-[#F5F1E9]">{processedProperties.length} alojamientos</strong> en{' '}
+                  <strong className="text-[#59D7CC]">{dataMode === 'demo' ? 'Catálogo DEMO' : resolvedPlace || destination}</strong>
+                  {lastQueryTime && <span className="text-[#8E999B] ml-2">({lastQueryTime})</span>}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <ArrowUpDown className="w-3.5 h-3.5 text-[#A47BFF]" />
+                  <span className="text-xs text-[#C7CBC9]">Ordenar por:</span>
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value)}
+                    className="px-2.5 py-1 rounded-lg bg-[#10131B] border border-[#59616A]/60 text-xs text-[#F5F1E9]"
+                  >
+                    <option value="best_match">Mejor coincidencia familiar (%)</option>
+                    <option value="price_total">Menor precio total capturado</option>
+                    <option value="price_person">Menor precio por persona</option>
+                  </select>
+                </div>
+              </div>
+            )}
+
+            {/* LISTA DE ALOJAMIENTOS REALES */}
+            <div className="space-y-4">
+              {processedProperties.map((prop) => {
+                const isSelected = selectedIds.includes(prop.id);
+                const links = buildLiveBookingLinks(prop.name, prop.location);
+
+                return (
+                  <article
+                    key={prop.id}
+                    className={`rounded-2xl bg-[#171322] border transition p-5 ${
+                      isSelected
+                        ? 'border-[#59D7CC] shadow-[0_0_20px_rgba(89,215,204,0.12)]'
+                        : 'border-[#59616A]/50 hover:border-[#59616A]'
+                    }`}
+                  >
+                    <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-5">
+                      {/* Columna Izquierda: Información real del alojamiento */}
+                      <div className="space-y-2.5 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-[#A47BFF]/15 text-[#A47BFF] border border-[#A47BFF]/40">
+                            {prop.typeLabel}
+                          </span>
+                          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-[#59D7CC]/15 text-[#59D7CC] border border-[#59D7CC]/40">
+                            {prop.matchScore}% coincidencia familiar
+                          </span>
+                          {prop.stars && (
+                            <span className="text-xs text-[#D99A73] font-semibold">
+                              ★ {prop.stars} estrellas
+                            </span>
+                          )}
+                          {prop.isDemo && (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#D99A73] text-[#10131B]">
+                              MODO DEMO
+                            </span>
+                          )}
+                        </div>
+
+                        <h3 className="text-lg font-semibold text-[#F5F1E9]">{prop.name}</h3>
+
+                        <p className="text-xs text-[#C7CBC9] flex items-center gap-1.5">
+                          <MapPin className="w-3.5 h-3.5 text-[#59D7CC] shrink-0" />
+                          {prop.location}
+                        </p>
+
+                        <div className="flex flex-wrap items-center gap-2 pt-1">
+                          {prop.amenities.map((am) => {
+                            const labelObj = PREFERENCE_OPTIONS.find((o) => o.id === am);
+                            if (!labelObj) return null;
+                            return (
+                              <span
+                                key={am}
+                                className="px-2 py-0.5 rounded bg-[#10131B] border border-[#59616A]/40 text-[11px] text-[#C7CBC9]"
+                              >
+                                ✓ {labelObj.label}
+                              </span>
+                            );
+                          })}
+                        </div>
+
+                        {/* ENLACES DIRECTOS A MOTORES DE RESERVA REALES CON FECHAS Y GRUPO */}
+                        <div className="pt-3">
+                          <span className="block text-[11px] uppercase tracking-wider text-[#8E999B] mb-2">
+                            Ver disponibilidad y tarifa exacta en vivo ({checkIn} al {checkOut} · {adults} adultos, {childrenCount} niños):
+                          </span>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <a
+                              href={links.bookingUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="px-3 py-1.5 rounded-lg bg-[#10131B] hover:bg-[#59D7CC]/15 border border-[#59D7CC]/50 text-xs text-[#59D7CC] font-medium flex items-center gap-1.5 transition"
+                            >
+                              Booking.com <ExternalLink className="w-3 h-3" />
+                            </a>
+                            <a
+                              href={links.googleHotelsUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="px-3 py-1.5 rounded-lg bg-[#10131B] hover:bg-[#A47BFF]/15 border border-[#A47BFF]/50 text-xs text-[#A47BFF] font-medium flex items-center gap-1.5 transition"
+                            >
+                              Google Hotels <ExternalLink className="w-3 h-3" />
+                            </a>
+                            <a
+                              href={links.expediaUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="px-3 py-1.5 rounded-lg bg-[#10131B] hover:bg-[#D99A73]/15 border border-[#D99A73]/50 text-xs text-[#D99A73] font-medium flex items-center gap-1.5 transition"
+                            >
+                              Expedia <ExternalLink className="w-3 h-3" />
+                            </a>
+                            <a
+                              href={links.airbnbUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="px-3 py-1.5 rounded-lg bg-[#10131B] hover:bg-white/10 border border-[#59616A]/60 text-xs text-[#F5F1E9] font-medium flex items-center gap-1.5 transition"
+                            >
+                              Airbnb <ExternalLink className="w-3 h-3" />
+                            </a>
+                            {prop.website && (
+                              <a
+                                href={prop.website}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="px-3 py-1.5 rounded-lg bg-[#10131B] border border-[#59616A]/60 text-xs text-[#C7CBC9] hover:text-[#F5F1E9] flex items-center gap-1.5"
+                              >
+                                Web Oficial <ExternalLink className="w-3 h-3" />
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Columna Derecha: Tarifas capturadas / Comparación transparente */}
+                      <div className="lg:w-80 shrink-0 rounded-xl bg-[#10131B] border border-[#59616A]/50 p-4 flex flex-col justify-between space-y-3">
+                        {prop.bestRate ? (
+                          <div className="space-y-1.5">
+                            <div className="flex items-center justify-between text-[11px] text-[#8E999B]">
+                              <span>Fuente: {prop.bestRate.sourceName}</span>
+                              <span>{prop.bestRate.queriedAt}</span>
+                            </div>
+                            <div className="text-2xl font-bold text-[#59D7CC]">
+                              {formatMoney(prop.bestRate.totalStayPrice)}{' '}
+                              <span className="text-xs font-normal text-[#C7CBC9]">total estadía</span>
+                            </div>
+                            <div className="text-xs text-[#C7CBC9] flex items-center justify-between">
+                              <span>{formatMoney(prop.bestRate.perNightPrice)} / noche</span>
+                              <span>{formatMoney(prop.bestRate.perPersonPrice)} / persona</span>
+                            </div>
+                            <div className="text-[11px] text-[#D99A73]">
+                              {prop.bestRate.taxesIncluded
+                                ? '✓ Impuestos incluidos'
+                                : `+ ${formatMoney(prop.bestRate.taxAmount)} impuestos/cargos`}
+                            </div>
+                            <div className="text-[11px] text-[#C7CBC9]">
+                              Condición: {prop.bestRate.cancellation}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-1.5">
+                            <span className="inline-block px-2 py-0.5 rounded bg-[#D99A73]/15 text-[#D99A73] text-[11px] font-medium">
+                              Precio en vivo en el proveedor
+                            </span>
+                            <p className="text-xs text-[#C7CBC9]">
+                              Abre cualquiera de los motores de la izquierda para ver la tarifa exacta de hoy y anótala aquí con un clic para comparar.
+                            </p>
+                          </div>
+                        )}
+
+                        <div className="flex flex-col gap-2 pt-2 border-t border-[#59616A]/30">
+                          <button
+                            type="button"
+                            onClick={() => setRateModalPropertyId(prop.id)}
+                            className="w-full py-1.5 px-3 rounded-lg bg-[#171322] hover:bg-[#A47BFF]/20 border border-[#A47BFF]/50 text-xs text-[#A47BFF] font-medium flex items-center justify-center gap-1.5 transition"
+                          >
+                            <PlusCircle className="w-3.5 h-3.5" />
+                            {prop.bestRate ? 'Agregar otra fuente de precio' : 'Capturar tarifa vista para comparar'}
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => toggleSelectProperty(prop.id)}
+                            className={`w-full py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition ${
+                              isSelected
+                                ? 'bg-[#59D7CC] text-[#10131B]'
+                                : 'bg-[#171322] text-[#F5F1E9] border border-[#59616A]/60 hover:border-[#59D7CC]'
+                            }`}
+                          >
+                            {isSelected ? (
+                              <>
+                                <CheckCircle2 className="w-4 h-4" /> Seleccionado para resumen
+                              </>
+                            ) : (
+                              'Guardar / Comparar opción'
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
           </>
         )}
 
-        {/* ===================================================================
-            PESTAÑA 2: OFERTAS, CÓDIGOS Y DESCUENTOS CON VERIFICACIÓN HONESTA
-           =================================================================== */}
+        {/* PESTAÑA 2: OFERTAS Y DESCUENTOS PÚBLICOS */}
         {activeTab === 'offers' && (
-          <section className="space-y-5">
-            <div
-              className="rounded-2xl border p-5 sm:p-6 space-y-4"
-              style={{ backgroundColor: '#171322', borderColor: '#59616A' }}
-            >
-              <div
-                className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4"
-                style={{ borderColor: '#59616A' }}
-              >
-                <div>
-                  <span
-                    className="text-xs font-bold uppercase tracking-wider"
-                    style={{ color: '#D99A73' }}
-                  >
-                    Fuentes Públicas y Autorizadas
-                  </span>
-                  <h3
-                    className="text-xl font-bold mt-0.5"
-                    style={{ color: '#F5F1E9' }}
-                  >
-                    Ofertas de Temporada, Tarifas Familiares y Códigos
-                    Promocionales
-                  </h3>
-                  <p
-                    className="text-xs sm:text-sm mt-1"
-                    style={{ color: '#C7CBC9' }}
-                  >
-                    Cada promoción detalla su fuente, vigencia, requisitos de
-                    grupo familiar y estado real de comprobación.
-                  </p>
-                </div>
-
-                <label
-                  className="flex items-center gap-2 text-xs cursor-pointer self-start md:self-center px-3 py-2 rounded-lg border"
-                  style={{
-                    backgroundColor: '#10131B',
-                    borderColor: '#59616A',
-                    color: '#C7CBC9',
-                  }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={showExpiredOffers}
-                    onChange={(e) => setShowExpiredOffers(e.target.checked)}
-                    className="rounded accent-[#D99A73]"
-                  />
-                  <span>Mostrar también ofertas vencidas (Archivo)</span>
-                </label>
-              </div>
-
-              {/* Aviso ético de alcance y no evasión de controles */}
-              <div
-                className="p-4 rounded-xl border text-xs space-y-1.5"
-                style={{
-                  backgroundColor: '#10131B',
-                  borderColor: '#59616A',
-                  color: '#C7CBC9',
-                }}
-              >
-                <div
-                  className="font-bold flex items-center gap-2"
-                  style={{ color: '#59D7CC' }}
-                >
-                  <ShieldCheck className="w-4 h-4" />
-                  Compromiso de Transparencia sobre Cupones y Cobertura de
-                  Fuentes
-                </div>
-                <p>
-                  • <strong>Sin falsas promesas:</strong> Ninguna aplicación
-                  puede garantizar el precio más bajo de todo Internet. Aquí
-                  explicamos exactamente qué fuentes oficiales o programas de
-                  afiliados se consultaron y a qué hora.
-                </p>
-                <p>
-                  • <strong>Verificación en el pago:</strong> Nunca afirmamos
-                  que un cupón funciona en el checkout final si no se ha
-                  comprobado allí; distinguimos claramente entre{' '}
-                  <em>"Verificado por la fuente"</em> y{' '}
-                  <em>"Publicado pero sin verificar al reservar"</em>.
-                </p>
-                <p>
-                  • <strong>Respeto técnico y legal:</strong> No evadimos
-                  inicios de sesión, CAPTCHAs, paywalls ni controles anti-bots,
-                  ni extraemos datos de sitios que prohíben el acceso
-                  automatizado.
-                </p>
-              </div>
-
-              {/* Tarjetas de Ofertas */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {DEMO_OFFERS.filter(
-                  (off) =>
-                    showExpiredOffers || off.verificationStatus !== 'expired'
-                ).map((offer) => {
-                  const isVerified =
-                    offer.verificationStatus === 'verified_source';
-                  const isUnverified =
-                    offer.verificationStatus === 'unverified_checkout';
-
-                  return (
-                    <div
-                      key={offer.id}
-                      className="rounded-xl border p-5 flex flex-col justify-between space-y-4"
-                      style={{
-                        backgroundColor: '#10131B',
-                        borderColor: isVerified
-                          ? '#59D7CC'
-                          : isUnverified
-                          ? '#D99A73'
-                          : '#59616A',
-                      }}
-                    >
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between gap-2 flex-wrap">
-                          <span
-                            className="font-mono text-sm font-extrabold px-3 py-1 rounded border"
-                            style={{
-                              backgroundColor: '#171322',
-                              borderColor: '#D99A73',
-                              color: '#D99A73',
-                            }}
-                          >
-                            CÓDIGO: {offer.code}
-                          </span>
-
-                          {/* Insignia de estado estricto */}
-                          <span
-                            className="text-xs font-bold px-2.5 py-1 rounded-full"
-                            style={
-                              isVerified
-                                ? {
-                                    backgroundColor: 'rgba(89, 215, 204, 0.16)',
-                                    color: '#59D7CC',
-                                    border: '1px solid #59D7CC',
-                                  }
-                                : isUnverified
-                                ? {
-                                    backgroundColor:
-                                      'rgba(217, 154, 115, 0.18)',
-                                    color: '#D99A73',
-                                    border: '1px solid #D99A73',
-                                  }
-                                : {
-                                    backgroundColor: 'rgba(142, 153, 155, 0.2)',
-                                    color: '#8E999B',
-                                    border: '1px solid #59616A',
-                                  }
-                            }
-                          >
-                            {offer.statusLabel}
-                          </span>
-                        </div>
-
-                        <h4
-                          className="text-base font-bold"
-                          style={{ color: '#F5F1E9' }}
-                        >
-                          {offer.title}
-                        </h4>
-
-                        <p className="text-xs" style={{ color: '#C7CBC9' }}>
-                          {offer.statusDescription}
-                        </p>
-
-                        <div
-                          className="p-3 rounded-lg border text-xs space-y-1.5"
-                          style={{
-                            backgroundColor: '#171322',
-                            borderColor: '#59616A',
-                          }}
-                        >
-                          <div>
-                            <strong style={{ color: '#F5F1E9' }}>
-                              Fuente autorizada:
-                            </strong>{' '}
-                            <span style={{ color: '#C7CBC9' }}>
-                              {offer.sourceName}
-                            </span>
-                          </div>
-                          <div>
-                            <strong style={{ color: '#F5F1E9' }}>
-                              Vigencia de reserva:
-                            </strong>{' '}
-                            <span style={{ color: '#C7CBC9' }}>
-                              {offer.validUntil}
-                            </span>
-                          </div>
-                          <div>
-                            <strong style={{ color: '#F5F1E9' }}>
-                              Fechas de viaje aplicables:
-                            </strong>{' '}
-                            <span style={{ color: '#C7CBC9' }}>
-                              {offer.travelWindow}
-                            </span>
-                          </div>
-                          <div>
-                            <strong style={{ color: '#F5F1E9' }}>
-                              Requisitos de grupo familiar:
-                            </strong>{' '}
-                            <span style={{ color: '#59D7CC' }}>
-                              {offer.requirements}
-                            </span>
-                          </div>
-                          <div>
-                            <strong style={{ color: '#F5F1E9' }}>
-                              Restricciones y condiciones:
-                            </strong>{' '}
-                            <span style={{ color: '#D99A73' }}>
-                              {offer.restrictions}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div
-                        className="pt-3 border-t flex items-center justify-between text-xs"
-                        style={{ borderColor: '#59616A' }}
-                      >
-                        <span style={{ color: '#8E999B' }}>
-                          Consultado: {offer.lastChecked}{' '}
-                          {dataMode === 'demo' ? '(DEMO)' : ''}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            navigator.clipboard?.writeText(offer.code);
-                            setCopiedNotice(true);
-                            setTimeout(() => setCopiedNotice(false), 2500);
-                          }}
-                          className="px-3 py-1.5 rounded-lg font-semibold border transition-colors flex items-center gap-1.5"
-                          style={{
-                            borderColor: '#59D7CC',
-                            color: '#59D7CC',
-                            backgroundColor: 'rgba(89, 215, 204, 0.1)',
-                          }}
-                        >
-                          <Copy className="w-3.5 h-3.5" />
-                          Copiar código
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </section>
-        )}
-
-        {/* ===================================================================
-            PESTAÑA 3: ARQUITECTURA DE FUENTES E INTEGRACIONES
-           =================================================================== */}
-        {activeTab === 'integrations' && (
-          <section
-            className="rounded-2xl border p-6 space-y-6"
-            style={{ backgroundColor: '#171322', borderColor: '#59616A' }}
-          >
-            <div className="border-b pb-4" style={{ borderColor: '#59616A' }}>
-              <span
-                className="text-xs font-bold uppercase tracking-wider"
-                style={{ color: '#A47BFF' }}
-              >
-                Arquitectura de Seguridad y Transparencia
-              </span>
-              <h3
-                className="text-xl font-bold mt-1"
-                style={{ color: '#F5F1E9' }}
-              >
-                Estado de Fuentes de Tarifas, Proveedores y Modo de Datos
-              </h3>
-              <p
-                className="text-xs sm:text-sm mt-1"
-                style={{ color: '#C7CBC9' }}
-              >
-                Revisa qué funciona en tiempo real en el navegador, qué depende
-                de credenciales en un servidor backend y qué forma parte del
-                conjunto de datos DEMO.
+          <section className="space-y-4">
+            <div className="rounded-2xl bg-[#171322] border border-[#D99A73]/50 p-5">
+              <h2 className="text-lg font-semibold text-[#F5F1E9] flex items-center gap-2">
+                <Tag className="w-5 h-5 text-[#D99A73]" />
+                Ofertas Públicas, Tarifas Familiares y Descuentos Oficiales
+              </h2>
+              <p className="text-xs text-[#C7CBC9] mt-1">
+                No prometemos el precio más bajo de todo Internet ni inventamos cupones falsos. Estas son las páginas oficiales de promociones activas verificables directamente al reservar.
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-              <div
-                className="p-4 rounded-xl border space-y-2"
-                style={{ backgroundColor: '#10131B', borderColor: '#59D7CC' }}
-              >
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {PUBLIC_FAMILY_OFFERS.map((offer) => (
                 <div
-                  className="font-bold text-sm flex items-center gap-2"
-                  style={{ color: '#59D7CC' }}
+                  key={offer.id}
+                  className="rounded-2xl bg-[#171322] border border-[#59616A]/50 p-5 flex flex-col justify-between space-y-4"
                 >
-                  <CheckCircle2 className="w-4 h-4" />
-                  1. Funcional con Lógica Real hoy
-                </div>
-                <ul
-                  className="space-y-1.5 list-disc list-inside"
-                  style={{ color: '#C7CBC9' }}
-                >
-                  <li>
-                    Cálculo exacto de noches, huéspedes y edades de niños (0-17
-                    años).
-                  </li>
-                  <li>
-                    Motor de deduplicación de propiedades y comparación de
-                    fuentes con condiciones distintas.
-                  </li>
-                  <li>
-                    Cálculo de precio total, por noche, por persona y conversión
-                    multimoneda.
-                  </li>
-                  <li>Algoritmo de porcentaje de coincidencia familiar (%).</li>
-                  <li>
-                    Generación de resumen legible, copia al portapapeles y
-                    apertura del cliente de correo (<code>mailto:</code>).
-                  </li>
-                </ul>
-              </div>
+                  <div className="space-y-2">
+                    <span className="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-[#59D7CC]/15 text-[#59D7CC] border border-[#59D7CC]/40">
+                      {offer.status === 'verified_by_source'
+                        ? 'Enlace Oficial Verificado'
+                        : 'Publicado (Confirmar al reservar)'}
+                    </span>
+                    <h3 className="text-base font-semibold text-[#F5F1E9]">{offer.title}</h3>
+                    <div className="p-2.5 rounded-lg bg-[#10131B] border border-[#D99A73]/40 text-xs font-mono text-[#D99A73]">
+                      {offer.code} — {offer.discountText}
+                    </div>
+                    <p className="text-xs text-[#C7CBC9]">
+                      <strong>Fuente:</strong> {offer.source}
+                    </p>
+                    <p className="text-xs text-[#C7CBC9]">
+                      <strong>Requisitos:</strong> {offer.groupRequirements}
+                    </p>
+                    <p className="text-[11px] text-[#8E999B]">{offer.restrictions}</p>
+                  </div>
 
-              <div
-                className="p-4 rounded-xl border space-y-2"
-                style={{ backgroundColor: '#10131B', borderColor: '#A47BFF' }}
-              >
-                <div
-                  className="font-bold text-sm flex items-center gap-2"
-                  style={{ color: '#A47BFF' }}
-                >
-                  <Server className="w-4 h-4" />
-                  2. Depende de Credenciales Externas
+                  <a
+                    href={offer.sourceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full py-2 px-3 rounded-lg bg-[#D99A73] text-[#10131B] font-semibold text-xs flex items-center justify-center gap-1.5 hover:opacity-90 transition"
+                  >
+                    Abrir Página Oficial de la Oferta <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
                 </div>
-                <ul
-                  className="space-y-1.5 list-disc list-inside"
-                  style={{ color: '#C7CBC9' }}
-                >
-                  <li>
-                    Cotización en tiempo real de inventario hotelero vía Amadeus
-                    / Expedia Rapid / Booking Demand API.
-                  </li>
-                  <li>
-                    Validación en vivo de cupones dentro del carrito de pago de
-                    cada hotel.
-                  </li>
-                  <li>
-                    Envío automático de correos vía servidor SMTP/API
-                    (actualmente delega de forma segura en el cliente de correo
-                    del dispositivo previa confirmación).
-                  </li>
-                </ul>
-              </div>
-
-              <div
-                className="p-4 rounded-xl border space-y-2"
-                style={{ backgroundColor: '#10131B', borderColor: '#D99A73' }}
-              >
-                <div
-                  className="font-bold text-sm flex items-center gap-2"
-                  style={{ color: '#D99A73' }}
-                >
-                  <Sparkles className="w-4 h-4" />
-                  3. Rotulado en Modo DEMO
-                </div>
-                <ul
-                  className="space-y-1.5 list-disc list-inside"
-                  style={{ color: '#C7CBC9' }}
-                >
-                  <li>
-                    5 alojamientos familiares de muestra (Riviera Maya, Akumal,
-                    Orlando, Punta Cana y Mallorca).
-                  </li>
-                  <li>
-                    10 cotizaciones de fuentes comparadas con diferentes
-                    políticas de cancelación e impuestos.
-                  </li>
-                  <li>
-                    4 promociones y códigos de descuento con distintos estados
-                    de verificación.
-                  </li>
-                </ul>
-              </div>
+              ))}
             </div>
           </section>
         )}
       </main>
 
-      {/* =====================================================================
-          BARRA FLOTANTE INFERIOR DE RESUMEN Y COMPARACIÓN RÁPIDA
-         ===================================================================== */}
-      <div
-        className="sticky bottom-0 z-20 border-t px-4 py-3 backdrop-blur-md"
-        style={{
-          backgroundColor: 'rgba(23, 19, 34, 0.95)',
-          borderColor: '#59616A',
-        }}
-      >
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="flex items-center gap-3 text-xs sm:text-sm">
-            <span
-              className="px-2.5 py-1 rounded-lg font-bold"
-              style={{ backgroundColor: '#59D7CC', color: '#10131B' }}
-            >
-              {selectedForSummary.length} seleccionados
-            </span>
-            <span style={{ color: '#C7CBC9' }}>
-              Guarda o comparte el resumen familiar sin crear una cuenta.
-            </span>
-          </div>
+      {/* BARRA INFERIOR FLOTANTE DE SELECCIÓN Y COMPARTICIÓN */}
+      {selectedIds.length > 0 && (
+        <div className="sticky bottom-0 z-20 bg-[#171322]/95 border-t border-[#59D7CC]/50 backdrop-blur-md py-3 px-4">
+          <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-xs sm:text-sm">
+              <span className="px-2.5 py-1 rounded-full bg-[#59D7CC] text-[#10131B] font-bold">
+                {selectedIds.length} seleccionados
+              </span>
+              <span className="text-[#C7CBC9]">
+                Guarda, compara o comparte el resumen con tu familia sin crear cuenta.
+              </span>
+            </div>
 
-          <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto justify-end">
-            <button
-              type="button"
-              onClick={() => setIsCompareModalOpen(true)}
-              disabled={selectedForCompare.length < 2}
-              className="px-3.5 py-2 rounded-xl text-xs font-semibold border transition-all flex items-center gap-1.5 disabled:opacity-40"
-              style={{
-                backgroundColor: '#10131B',
-                borderColor: '#A47BFF',
-                color: '#A47BFF',
-              }}
-            >
-              <Columns className="w-4 h-4" />
-              Comparar ({selectedForCompare.length})
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setIsSummaryDrawerOpen(true)}
-              className="px-3.5 py-2 rounded-xl text-xs font-semibold border transition-all flex items-center gap-1.5"
-              style={{
-                backgroundColor: '#10131B',
-                borderColor: '#59D7CC',
-                color: '#F5F1E9',
-              }}
-            >
-              <Eye className="w-4 h-4" style={{ color: '#59D7CC' }} />
-              Ver Resumen Legible
-            </button>
-
-            <button
-              type="button"
-              onClick={handleCopySummary}
-              className="px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5"
-              style={{
-                backgroundColor: '#59D7CC',
-                color: '#10131B',
-              }}
-            >
-              <Copy className="w-4 h-4" />
-              {copiedNotice ? '¡Resumen Copiado!' : 'Copiar Resumen'}
-            </button>
-
-            <button
-              type="button"
-              onClick={handleOpenPrepareEmail}
-              className="px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5"
-              style={{
-                backgroundColor: '#D99A73',
-                color: '#10131B',
-              }}
-            >
-              <Mail className="w-4 h-4" />
-              Preparar Correo
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* =====================================================================
-          MODAL 1: COMPARADOR LADO A LADO (2 A 4 ALOJAMIENTOS)
-         ===================================================================== */}
-      {isCompareModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
-          <div
-            className="w-full max-w-6xl max-h-[90vh] rounded-2xl border flex flex-col overflow-hidden shadow-2xl"
-            style={{ backgroundColor: '#171322', borderColor: '#A47BFF' }}
-          >
-            <div
-              className="px-6 py-4 border-b flex items-center justify-between"
-              style={{ borderColor: '#59616A' }}
-            >
-              <div>
-                <h3
-                  className="text-lg font-bold flex items-center gap-2"
-                  style={{ color: '#F5F1E9' }}
-                >
-                  <Columns className="w-5 h-5" style={{ color: '#A47BFF' }} />
-                  Comparación Familiar Lado a Lado (
-                  {comparedPropertiesList.length} alojamientos)
-                </h3>
-                <p className="text-xs" style={{ color: '#C7CBC9' }}>
-                  Comparativa directa de precios totales, por persona,
-                  impuestos, cancelación y coincidencia con tus preferencias.
-                </p>
-              </div>
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
-                onClick={() => setIsCompareModalOpen(false)}
-                className="p-2 rounded-lg border"
-                style={{ borderColor: '#59616A', color: '#C7CBC9' }}
+                onClick={() => setShowCompareModal(true)}
+                className="px-3 py-1.5 rounded-lg bg-[#10131B] border border-[#A47BFF]/60 text-xs text-[#A47BFF] font-medium hover:bg-[#A47BFF]/10"
+              >
+                Comparar lado a lado ({selectedIds.length})
+              </button>
+              <button
+                type="button"
+                onClick={handleCopySummary}
+                className="px-3 py-1.5 rounded-lg bg-[#59D7CC] text-[#10131B] text-xs font-semibold flex items-center gap-1.5"
+              >
+                <Copy className="w-3.5 h-3.5" />
+                {copiedFeedback ? '¡Copiado al portapapeles!' : 'Copiar Resumen'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowSummaryModal(true)}
+                className="px-3 py-1.5 rounded-lg bg-[#D99A73] text-[#10131B] text-xs font-semibold flex items-center gap-1.5"
+              >
+                <Mail className="w-3.5 h-3.5" />
+                Preparar Correo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL PARA CAPTURAR TARIFA VISTA EN UN PROVEEDOR */}
+      {rateModalPropertyId && (
+        <div className="fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-4">
+          <div className="bg-[#171322] border border-[#59616A] rounded-2xl max-w-md w-full p-5 space-y-4">
+            <div className="flex items-center justify-between border-b border-[#59616A]/40 pb-3">
+              <h3 className="text-base font-semibold text-[#F5F1E9]">
+                Registrar Tarifa Vista para Comparar
+              </h3>
+              <button
+                type="button"
+                onClick={() => setRateModalPropertyId(null)}
+                className="text-[#8E999B] hover:text-[#F5F1E9]"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="p-6 overflow-auto flex-1">
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="block text-[#C7CBC9] mb-1">Fuente donde viste el precio</label>
+                <select
+                  value={rateSource}
+                  onChange={(e) => setRateSource(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg bg-[#10131B] border border-[#59616A] text-[#F5F1E9]"
+                >
+                  <option value="Booking.com">Booking.com</option>
+                  <option value="Google Hotels">Google Hotels</option>
+                  <option value="Expedia">Expedia</option>
+                  <option value="Airbnb">Airbnb</option>
+                  <option value="Sitio Oficial del Hotel">Sitio Oficial del Hotel</option>
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[#C7CBC9] mb-1">Precio ({currency})</label>
+                  <input
+                    type="number"
+                    value={rateAmount}
+                    onChange={(e) => setRateAmount(e.target.value)}
+                    placeholder="Ej. 1850"
+                    className="w-full px-3 py-2 rounded-lg bg-[#10131B] border border-[#59616A] text-[#F5F1E9]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[#C7CBC9] mb-1">Tipo de monto</label>
+                  <select
+                    value={rateIsPerNight ? 'night' : 'total'}
+                    onChange={(e) => setRateIsPerNight(e.target.value === 'night')}
+                    className="w-full px-3 py-2 rounded-lg bg-[#10131B] border border-[#59616A] text-[#F5F1E9]"
+                  >
+                    <option value="total">Total de la estadía</option>
+                    <option value="night">Precio por noche</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 items-center">
+                <label className="inline-flex items-center gap-2 text-[#C7CBC9] cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={rateTaxesIncluded}
+                    onChange={(e) => setRateTaxesIncluded(e.target.checked)}
+                    className="accent-[#59D7CC]"
+                  />
+                  Impuestos incluidos
+                </label>
+                {!rateTaxesIncluded && (
+                  <input
+                    type="number"
+                    value={rateTaxAmount}
+                    onChange={(e) => setRateTaxAmount(e.target.value)}
+                    placeholder="Impuestos adicionales"
+                    className="px-3 py-1.5 rounded-lg bg-[#10131B] border border-[#59616A] text-[#F5F1E9]"
+                  />
+                )}
+              </div>
+
+              <div>
+                <label className="block text-[#C7CBC9] mb-1">Condiciones de cancelación / comidas</label>
+                <input
+                  type="text"
+                  value={rateCancellation}
+                  onChange={(e) => setRateCancellation(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg bg-[#10131B] border border-[#59616A] text-[#F5F1E9]"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setRateModalPropertyId(null)}
+                className="px-4 py-2 rounded-lg bg-[#10131B] text-xs text-[#C7CBC9]"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveQuotedRate}
+                className="px-4 py-2 rounded-lg bg-[#59D7CC] text-[#10131B] text-xs font-semibold"
+              >
+                Calcular y Guardar Tarifa
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE COMPARACIÓN LADO A LADO */}
+      {showCompareModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+          <div className="bg-[#171322] border border-[#59616A] rounded-2xl max-w-5xl w-full p-6 max-h-[90vh] overflow-y-auto space-y-4">
+            <div className="flex items-center justify-between border-b border-[#59616A]/40 pb-3">
+              <h3 className="text-lg font-semibold text-[#F5F1E9]">
+                Comparativa Familiar Lado a Lado ({selectedProperties.length})
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowCompareModal(false)}
+                className="text-[#8E999B] hover:text-[#F5F1E9]"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
-                  <tr className="border-b" style={{ borderColor: '#59616A' }}>
-                    <th className="p-3 w-44" style={{ color: '#8E999B' }}>
-                      Atributo Familiar
-                    </th>
-                    {comparedPropertiesList.map((prop) => (
-                      <th
-                        key={prop.id}
-                        className="p-3 min-w-[210px]"
-                        style={{ color: '#F5F1E9' }}
-                      >
-                        <div
-                          className="text-xs font-bold uppercase"
-                          style={{ color: '#A47BFF' }}
-                        >
-                          {prop.type}
-                        </div>
-                        <div className="text-sm font-bold mt-0.5">
-                          {prop.name}
-                        </div>
-                        <div
-                          className="text-[11px] font-normal"
-                          style={{ color: '#8E999B' }}
-                        >
-                          {prop.destination}
-                        </div>
-                      </th>
-                    ))}
+                  <tr className="border-b border-[#59616A]/40 text-[#8E999B]">
+                    <th className="py-2 pr-4">Alojamiento</th>
+                    <th className="py-2 px-3">Tipo / Ubicación</th>
+                    <th className="py-2 px-3">Coincidencia</th>
+                    <th className="py-2 px-3">Total Estadía</th>
+                    <th className="py-2 px-3">Por Persona</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y" style={{ borderColor: '#59616A' }}>
-                  <tr>
-                    <td
-                      className="p-3 font-semibold"
-                      style={{ color: '#C7CBC9' }}
-                    >
-                      Coincidencia Familiar
-                    </td>
-                    {comparedPropertiesList.map((prop) => (
-                      <td
-                        key={prop.id}
-                        className="p-3 font-bold"
-                        style={{ color: '#59D7CC' }}
-                      >
-                        {prop.matchPercentage}% de los filtros
+                <tbody className="divide-y divide-[#59616A]/30">
+                  {selectedProperties.map((p) => (
+                    <tr key={p.id}>
+                      <td className="py-3 pr-4 font-semibold text-[#F5F1E9]">{p.name}</td>
+                      <td className="py-3 px-3 text-[#C7CBC9]">
+                        {p.typeLabel} · {p.location}
                       </td>
-                    ))}
-                  </tr>
-                  <tr>
-                    <td
-                      className="p-3 font-semibold"
-                      style={{ color: '#C7CBC9' }}
-                    >
-                      Precio Total ({nightsCount} noches)
-                    </td>
-                    {comparedPropertiesList.map((prop) => (
-                      <td key={prop.id} className="p-3">
-                        <span
-                          className="text-base font-extrabold"
-                          style={{ color: '#F5F1E9' }}
-                        >
-                          {formatMoney(prop.totalStayUSD)}
-                        </span>
-                        <div
-                          className="text-[11px]"
-                          style={{ color: '#8E999B' }}
-                        >
-                          {formatMoney(prop.effectiveNightlyUSD)} / noche
-                        </div>
+                      <td className="py-3 px-3 text-[#59D7CC] font-semibold">{p.matchScore}%</td>
+                      <td className="py-3 px-3 font-semibold text-[#F5F1E9]">
+                        {p.bestRate ? formatMoney(p.bestRate.totalStayPrice) : 'Ver en enlace directo'}
                       </td>
-                    ))}
-                  </tr>
-                  <tr>
-                    <td
-                      className="p-3 font-semibold"
-                      style={{ color: '#C7CBC9' }}
-                    >
-                      Precio por Persona ({totalGuests})
-                    </td>
-                    {comparedPropertiesList.map((prop) => (
-                      <td
-                        key={prop.id}
-                        className="p-3 font-bold"
-                        style={{ color: '#59D7CC' }}
-                      >
-                        {formatMoney(prop.perPersonUSD)} / persona
+                      <td className="py-3 px-3 text-[#C7CBC9]">
+                        {p.bestRate ? formatMoney(p.bestRate.perPersonPrice) : '-'}
                       </td>
-                    ))}
-                  </tr>
-                  <tr>
-                    <td
-                      className="p-3 font-semibold"
-                      style={{ color: '#C7CBC9' }}
-                    >
-                      Impuestos y Cargos
-                    </td>
-                    {comparedPropertiesList.map((prop) => (
-                      <td
-                        key={prop.id}
-                        className="p-3"
-                        style={{
-                          color:
-                            prop.taxesStatus === 'unconfirmed'
-                              ? '#D99A73'
-                              : '#C7CBC9',
-                        }}
-                      >
-                        {prop.taxesNote}
-                      </td>
-                    ))}
-                  </tr>
-                  <tr>
-                    <td
-                      className="p-3 font-semibold"
-                      style={{ color: '#C7CBC9' }}
-                    >
-                      Capacidad y Unidades
-                    </td>
-                    {comparedPropertiesList.map((prop) => (
-                      <td
-                        key={prop.id}
-                        className="p-3"
-                        style={{ color: '#F5F1E9' }}
-                      >
-                        Máx. {prop.maxCapacity} personas •{' '}
-                        {prop.unitDistribution}
-                      </td>
-                    ))}
-                  </tr>
-                  <tr>
-                    <td
-                      className="p-3 font-semibold"
-                      style={{ color: '#C7CBC9' }}
-                    >
-                      Fuente y Régimen Principal
-                    </td>
-                    {comparedPropertiesList.map((prop) => (
-                      <td
-                        key={prop.id}
-                        className="p-3"
-                        style={{ color: '#C7CBC9' }}
-                      >
-                        <strong>{prop.primarySource.providerName}</strong> (
-                        {prop.primarySource.mealPlan})
-                      </td>
-                    ))}
-                  </tr>
-                  <tr>
-                    <td
-                      className="p-3 font-semibold"
-                      style={{ color: '#C7CBC9' }}
-                    >
-                      Política de Cancelación
-                    </td>
-                    {comparedPropertiesList.map((prop) => (
-                      <td
-                        key={prop.id}
-                        className="p-3"
-                        style={{ color: '#C7CBC9' }}
-                      >
-                        {prop.primarySource.cancellation}
-                      </td>
-                    ))}
-                  </tr>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
@@ -3604,264 +1582,76 @@ export default function App() {
         </div>
       )}
 
-      {/* =====================================================================
-          MODAL 2: VISTA PREVIA DEL RESUMEN GUARDADO Y COPIA AL PORTAPAPELES
-         ===================================================================== */}
-      {isSummaryDrawerOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
-          <div
-            className="w-full max-w-3xl max-h-[90vh] rounded-2xl border flex flex-col overflow-hidden shadow-2xl"
-            style={{ backgroundColor: '#171322', borderColor: '#59D7CC' }}
-          >
-            <div
-              className="px-6 py-4 border-b flex items-center justify-between"
-              style={{ borderColor: '#59616A' }}
-            >
-              <div>
-                <h3
-                  className="text-lg font-bold flex items-center gap-2"
-                  style={{ color: '#F5F1E9' }}
-                >
-                  <FileText className="w-5 h-5" style={{ color: '#59D7CC' }} />
-                  Resumen Familiar Seleccionado (
-                  {selectedSummaryProperties.length} alojamientos)
-                </h3>
-                <p className="text-xs" style={{ color: '#C7CBC9' }}>
-                  Revisa el resumen con fechas, capacidad, precios, condiciones
-                  y enlaces antes de copiarlo o preparar un correo.
-                </p>
-              </div>
+      {/* MODAL DE RESUMEN Y PREPARACIÓN DE CORREO */}
+      {showSummaryModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+          <div className="bg-[#171322] border border-[#59616A] rounded-2xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto space-y-4">
+            <div className="flex items-center justify-between border-b border-[#59616A]/40 pb-3">
+              <h3 className="text-lg font-semibold text-[#F5F1E9]">
+                Guardar o Compartir Resumen Familiar
+              </h3>
               <button
                 type="button"
-                onClick={() => setIsSummaryDrawerOpen(false)}
-                className="p-2 rounded-lg border"
-                style={{ borderColor: '#59616A', color: '#C7CBC9' }}
+                onClick={() => setShowSummaryModal(false)}
+                className="text-[#8E999B] hover:text-[#F5F1E9]"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="p-6 overflow-auto flex-1 space-y-4">
-              <pre
-                className="p-4 rounded-xl border text-xs font-mono whitespace-pre-wrap leading-relaxed"
-                style={{
-                  backgroundColor: '#10131B',
-                  borderColor: '#59616A',
-                  color: '#F5F1E9',
-                }}
-              >
-                {plainTextSummary}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <div>
+                <label className="block text-[#C7CBC9] mb-1">Correo destinatario (opcional)</label>
+                <input
+                  type="email"
+                  value={recipientEmail}
+                  onChange={(e) => setRecipientEmail(e.target.value)}
+                  placeholder="familia@ejemplo.com"
+                  className="w-full px-3 py-2 rounded-lg bg-[#10131B] border border-[#59616A] text-[#F5F1E9]"
+                />
+              </div>
+              <div>
+                <label className="block text-[#C7CBC9] mb-1">Asunto del correo</label>
+                <input
+                  type="text"
+                  value={emailSubject}
+                  onChange={(e) => setEmailSubject(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg bg-[#10131B] border border-[#59616A] text-[#F5F1E9]"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs text-[#C7CBC9] mb-1">
+                Vista previa del contenido antes de copiar o abrir tu aplicación de correo:
+              </label>
+              <pre className="p-3 rounded-xl bg-[#10131B] border border-[#59616A]/60 text-[11px] text-[#F5F1E9] whitespace-pre-wrap font-mono max-h-60 overflow-y-auto">
+                {summaryText}
               </pre>
             </div>
 
-            <div
-              className="px-6 py-4 border-t flex flex-wrap items-center justify-between gap-3"
-              style={{ backgroundColor: '#10131B', borderColor: '#59616A' }}
-            >
-              <span className="text-xs" style={{ color: '#8E999B' }}>
-                No se requiere crear cuenta para guardar ni copiar este resumen.
-              </span>
-              <div className="flex items-center gap-2.5">
-                <button
-                  type="button"
-                  onClick={handleCopySummary}
-                  className="px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5"
-                  style={{ backgroundColor: '#59D7CC', color: '#10131B' }}
-                >
-                  <Copy className="w-4 h-4" />
-                  {copiedNotice
-                    ? '¡Copiado al portapapeles!'
-                    : 'Copiar texto al portapapeles'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsSummaryDrawerOpen(false);
-                    handleOpenPrepareEmail();
-                  }}
-                  className="px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5"
-                  style={{ backgroundColor: '#D99A73', color: '#10131B' }}
-                >
-                  <Mail className="w-4 h-4" />
-                  Preparar Correo con este Resumen
-                </button>
+            {emailClientOpened && (
+              <div className="p-3 rounded-lg bg-[#59D7CC]/15 border border-[#59D7CC] text-xs text-[#59D7CC]">
+                Se abrió el cliente de correo de tu dispositivo con el resumen preparado. Recuerda confirmar y presionar "Enviar" dentro de tu aplicación de correo.
               </div>
-            </div>
-          </div>
-        </div>
-      )}
+            )}
 
-      {/* =====================================================================
-          MODAL 3: PREPARAR CORREO (SIN ENVÍO AUTOMÁTICO SILENCIOSO)
-         ===================================================================== */}
-      {isEmailModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
-          <div
-            className="w-full max-w-2xl max-h-[92vh] rounded-2xl border flex flex-col overflow-hidden shadow-2xl"
-            style={{ backgroundColor: '#171322', borderColor: '#D99A73' }}
-          >
-            <div
-              className="px-6 py-4 border-b flex items-center justify-between"
-              style={{ borderColor: '#59616A' }}
-            >
-              <div>
-                <h3
-                  className="text-lg font-bold flex items-center gap-2"
-                  style={{ color: '#F5F1E9' }}
-                >
-                  <Mail className="w-5 h-5" style={{ color: '#D99A73' }} />
-                  Preparar Correo con Resumen Familiar
-                </h3>
-                <p className="text-xs" style={{ color: '#C7CBC9' }}>
-                  Revisa o edita el contenido antes de abrir tu aplicación de
-                  correo.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsEmailModalOpen(false)}
-                className="p-2 rounded-lg border"
-                style={{ borderColor: '#59616A', color: '#C7CBC9' }}
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="p-6 overflow-auto flex-1 space-y-4 text-xs">
-              {/* Aviso de servicio de correo no configurado / cliente local */}
-              <div
-                className="p-3.5 rounded-xl border flex items-start gap-2.5"
-                style={{
-                  backgroundColor: 'rgba(89, 215, 204, 0.1)',
-                  borderColor: '#59D7CC',
-                  color: '#F5F1E9',
-                }}
-              >
-                <Info
-                  className="w-4 h-4 shrink-0 mt-0.5"
-                  style={{ color: '#59D7CC' }}
-                />
-                <div>
-                  <strong>Transparencia de envío:</strong> Este entorno no
-                  utiliza un servidor de correo oculto ni envía mensajes sin tu
-                  acción explícita. Al pulsar{' '}
-                  <em>"Abrir en mi cliente de correo"</em>, se abrirá la
-                  aplicación de correo de tu dispositivo con este mensaje
-                  preparado;{' '}
-                  <strong>recuerda completar y confirmar el envío allí</strong>.
-                </div>
-              </div>
-
-              <div>
-                <label
-                  className="block font-semibold mb-1"
-                  style={{ color: '#C7CBC9' }}
-                >
-                  Destinatario(s) (opcional, separados por coma):
-                </label>
-                <input
-                  type="text"
-                  value={emailDraft.to}
-                  onChange={(e) =>
-                    setEmailDraft((prev) => ({ ...prev, to: e.target.value }))
-                  }
-                  placeholder="familia@ejemplo.com, abuelos@ejemplo.com"
-                  className="w-full px-3 py-2 rounded-lg border"
-                  style={{
-                    backgroundColor: '#10131B',
-                    borderColor: '#59616A',
-                    color: '#F5F1E9',
-                  }}
-                />
-              </div>
-
-              <div>
-                <label
-                  className="block font-semibold mb-1"
-                  style={{ color: '#C7CBC9' }}
-                >
-                  Asunto del correo:
-                </label>
-                <input
-                  type="text"
-                  value={emailDraft.subject}
-                  onChange={(e) =>
-                    setEmailDraft((prev) => ({
-                      ...prev,
-                      subject: e.target.value,
-                    }))
-                  }
-                  className="w-full px-3 py-2 rounded-lg border"
-                  style={{
-                    backgroundColor: '#10131B',
-                    borderColor: '#59616A',
-                    color: '#F5F1E9',
-                  }}
-                />
-              </div>
-
-              <div>
-                <label
-                  className="block font-semibold mb-1"
-                  style={{ color: '#C7CBC9' }}
-                >
-                  Vista previa y edición del mensaje preparado:
-                </label>
-                <textarea
-                  rows={10}
-                  value={emailDraft.body}
-                  onChange={(e) =>
-                    setEmailDraft((prev) => ({ ...prev, body: e.target.value }))
-                  }
-                  className="w-full p-3 rounded-lg border font-mono text-xs leading-relaxed"
-                  style={{
-                    backgroundColor: '#10131B',
-                    borderColor: '#59616A',
-                    color: '#F5F1E9',
-                  }}
-                />
-              </div>
-
-              {emailDraft.clientOpenedNotice && (
-                <div
-                  className="p-3 rounded-lg border font-medium"
-                  style={{
-                    backgroundColor: 'rgba(217, 154, 115, 0.16)',
-                    borderColor: '#D99A73',
-                    color: '#D99A73',
-                  }}
-                >
-                  Se ha solicitado abrir el cliente de correo de tu dispositivo
-                  con el resumen preparado. Recuerda presionar "Enviar" dentro
-                  de tu aplicación de correo para completar el envío.
-                </div>
-              )}
-            </div>
-
-            <div
-              className="px-6 py-4 border-t flex flex-wrap items-center justify-between gap-3"
-              style={{ backgroundColor: '#10131B', borderColor: '#59616A' }}
-            >
+            <div className="flex flex-wrap justify-end gap-2 pt-2">
               <button
                 type="button"
                 onClick={handleCopySummary}
-                className="px-3.5 py-2 rounded-xl text-xs font-semibold border flex items-center gap-1.5"
-                style={{ borderColor: '#59D7CC', color: '#59D7CC' }}
+                className="px-4 py-2 rounded-lg bg-[#59D7CC] text-[#10131B] text-xs font-semibold flex items-center gap-1.5"
               >
                 <Copy className="w-4 h-4" />
-                {copiedNotice
-                  ? '¡Texto copiado!'
-                  : 'Copiar contenido por si prefieres pegarlo manualmente'}
+                {copiedFeedback ? '¡Copiado!' : 'Copiar al Portapapeles'}
               </button>
-
               <button
                 type="button"
-                onClick={handleLaunchMailClient}
-                className="px-5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2"
-                style={{ backgroundColor: '#59D7CC', color: '#10131B' }}
+                onClick={handleOpenMailClient}
+                className="px-4 py-2 rounded-lg bg-[#D99A73] text-[#10131B] text-xs font-semibold flex items-center gap-1.5"
               >
                 <Mail className="w-4 h-4" />
-                Abrir en mi cliente de correo (mailto:)
+                Abrir Cliente de Correo con este Mensaje
               </button>
             </div>
           </div>
