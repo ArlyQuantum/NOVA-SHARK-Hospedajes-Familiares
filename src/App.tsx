@@ -611,7 +611,7 @@ export default function App() {
   const summaryText = useMemo(() => {
     const lines: string[] = [
       '========================================================',
-      'NOVA RESET STUDIO — RESUMEN DE HOSPEDAJES FAMILIARES',
+      'NOVA SHARK — RESUMEN DE HOSPEDAJES FAMILIARES',
       '========================================================',
       `Destino consultado: ${resolvedPlace || destination}`,
       `Fechas: ${dateType === 'exact' ? `${checkIn} al ${checkOut}` : `Fechas flexibles (${nightsCount} noches)`}`,
